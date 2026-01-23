@@ -1,0 +1,21 @@
+# Виртуальное окружение
+venv/
+.env/
+__pycache__/
+
+# Данные и логи
+data/
+logs/
+*.log
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# I
+.vscode/
+.idea/
+*.swp
+*.swo
+
+*.json
