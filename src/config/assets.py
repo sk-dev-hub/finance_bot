@@ -12,6 +12,8 @@ from enum import Enum
 class AssetType(Enum):
     """Типы активов"""
     CRYPTO = "crypto"
+    FIAT = "fiat"
+    PRECIOUS_METAL = "precious_metal"
     STOCK = "stock"
     ETF = "etf"
     BOND = "bond"
@@ -34,6 +36,10 @@ class AssetConfig:
     # Источник данных
     price_source: str = "coingecko"  # Источник цен
     source_id: str = ""  # ID в источнике (например, "bitcoin" для CoinGecko)
+
+    # Для фиатных валют
+    base_currency: str = "USD"     # Базовая валюта для конвертации
+    exchange_rate: float = 1.0     # Курс к базовой валюте (по умолчанию 1:1)
 
     # Валидация
     min_amount: float = 0.000001  # Минимальное количество
@@ -122,7 +128,140 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         description="Стейблкоин привязанный к доллару США"
     ),
 
-    # ================= АКЦИИ =================
+    # ================= ФИАТНЫЕ ВАЛЮТЫ (НАЛИЧНЫЕ) =================
+    "rub": AssetConfig(
+        symbol="rub",
+        name="Рубли",
+        asset_type=AssetType.FIAT,
+        emoji="₽",
+        display_precision=2,
+        price_source="static",
+        base_currency="USD",
+        exchange_rate=0.011,  # Примерный курс: 1 RUB = 0.011 USD
+        aliases=["ruble", "rouble", "российский рубль"],
+        description="Российский рубль",
+        min_amount=1.0,
+        max_amount=10000000
+    ),
+
+    "usd": AssetConfig(
+        symbol="usd",
+        name="Доллары США",
+        asset_type=AssetType.FIAT,
+        emoji="💵",
+        display_precision=2,
+        price_source="static",
+        base_currency="USD",
+        exchange_rate=1.0,
+        aliases=["dollar", "us dollar", "доллар"],
+        description="Доллар США",
+        min_amount=0.01,
+        max_amount=1000000
+    ),
+
+    "cny": AssetConfig(
+        symbol="cny",
+        name="Юань",
+        asset_type=AssetType.FIAT,
+        emoji="¥",
+        display_precision=2,
+        price_source="static",
+        base_currency="USD",
+        exchange_rate=0.14,  # Примерный курс: 1 CNY = 0.14 USD
+        aliases=["yuan", "китайский юань"],
+        description="Китайский юань",
+        min_amount=1.0,
+        max_amount=10000000
+    ),
+
+    "eur": AssetConfig(
+        symbol="eur",
+        name="Евро",
+        asset_type=AssetType.FIAT,
+        emoji="💶",
+        display_precision=2,
+        price_source="static",
+        base_currency="USD",
+        exchange_rate=1.08,  # Примерный курс: 1 EUR = 1.08 USD
+        aliases=["euro", "евро"],
+        description="Евро",
+        min_amount=0.01,
+        max_amount=1000000
+    ),
+
+    "kzt": AssetConfig(
+        symbol="kzt",
+        name="Тенге",
+        asset_type=AssetType.FIAT,
+        emoji="₸",
+        display_precision=2,
+        price_source="static",
+        base_currency="USD",
+        exchange_rate=0.0021,  # Примерный курс: 1 KZT = 0.0021 USD
+        aliases=["tenge", "казахстанский тенге"],
+        description="Казахстанский тенге",
+        min_amount=1.0,
+        max_amount=10000000
+    ),
+
+    "uah": AssetConfig(
+        symbol="uah",
+        name="Гривна",
+        asset_type=AssetType.FIAT,
+        emoji="₴",
+        display_precision=2,
+        price_source="static",
+        base_currency="USD",
+        exchange_rate=0.026,  # Примерный курс: 1 UAH = 0.026 USD
+        aliases=["hryvnia", "гривна", "украинская гривна"],
+        description="Украинская гривна",
+        min_amount=1.0,
+        max_amount=10000000
+    ),
+
+    # ================= ДРАГОЦЕННЫЕ МЕТАЛЛЫ =================
+    "gold_coin_7_78": AssetConfig(
+        symbol="gold_coin_7_78",
+        name="Золотая монета 7.78г",
+        asset_type=AssetType.PRECIOUS_METAL,
+        emoji="🥇",
+        display_precision=4,
+        price_source="precious_metal",
+        description="Золотая монета весом 7.78 грамм (1/4 тройской унции)",
+        min_amount=0.1,
+        max_amount=100,
+        aliases=["золотая монета 7.78", "gold coin 7.78g", "gold_quarter_oz"]
+    ),
+
+    "gold_coin_15_55": AssetConfig(
+        symbol="gold_coin_15_55",
+        name="Золотая монета 15.55г",
+        asset_type=AssetType.PRECIOUS_METAL,
+        emoji="🏅",
+        display_precision=4,
+        price_source="precious_metal",
+        description="Золотая монета весом 15.55 грамм (1/2 тройской унции)",
+        min_amount=0.1,
+        max_amount=100,
+        aliases=["золотая монета 15.55", "gold coin 15.55g", "gold_half_oz"]
+    ),
+
+    "silver_coin_31_1": AssetConfig(
+        symbol="silver_coin_31_1",
+        name="Серебряная монета 31.1г",
+        asset_type=AssetType.PRECIOUS_METAL,
+        emoji="🥈",
+        display_precision=4,
+        price_source="precious_metal",
+        description="Серебряная монета весом 31.1 грамм (1 тройская унция)",
+        min_amount=0.1,
+        max_amount=1000,
+        aliases=["серебряная монета 31.1", "silver coin 31.1g", "silver_ounce"]
+    ),
+
+    # Можно добавить больше валют по аналогии
+
+# ================= АКЦИИ =================
     # Пример - раскомментируйте при необходимости
     # "aapl": AssetConfig(
     #     symbol="aapl",
@@ -189,6 +328,29 @@ def get_crypto_assets() -> List[AssetConfig]:
     """Возвращает список криптовалют"""
     return get_assets_by_type(AssetType.CRYPTO)
 
+def get_fiat_assets() -> List[AssetConfig]:
+    """Возвращает список фиатных валют"""
+    return get_assets_by_type(AssetType.FIAT)
+
+def get_precious_metal_assets() -> List[AssetConfig]:
+    """Возвращает список активов из драгоценных металлов"""
+    return get_assets_by_type(AssetType.PRECIOUS_METAL)
+
+def get_gold_assets() -> List[AssetConfig]:
+    """Возвращает список золотых активов"""
+    gold_assets = []
+    for asset in ASSETS_CONFIG.values():
+        if asset.asset_type == AssetType.PRECIOUS_METAL and "gold" in asset.symbol:
+            gold_assets.append(asset)
+    return gold_assets
+
+def get_silver_assets() -> List[AssetConfig]:
+    """Возвращает список серебряных активов"""
+    silver_assets = []
+    for asset in ASSETS_CONFIG.values():
+        if asset.asset_type == AssetType.PRECIOUS_METAL and "silver" in asset.symbol:
+            silver_assets.append(asset)
+    return silver_assets
 
 def is_asset_supported(symbol: str) -> bool:
     """Проверяет, поддерживается ли актив"""

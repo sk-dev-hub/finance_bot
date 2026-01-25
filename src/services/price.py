@@ -71,6 +71,37 @@ class PriceService:
         symbols = [asset.symbol for asset in crypto_assets]
         return await self.get_prices(symbols)
 
+    async def get_all_fiat_prices(self) -> Dict[str, Optional[AssetPrice]]:
+        """Получает цены всех фиатных валют"""
+        fiat_assets = asset_registry.get_fiat_assets()
+        symbols = [asset.symbol for asset in fiat_assets]
+        return await self.get_prices(symbols)
+
+    async def convert_currency(self, amount: float, from_currency: str, to_currency: str) -> Optional[float]:
+        """Конвертирует сумму из одной валюты в другую"""
+        try:
+            # Если конвертируем из USD в USD
+            if from_currency.upper() == to_currency.upper():
+                return amount
+
+            # Получаем цены обеих валют
+            prices = await self.get_prices([from_currency, to_currency])
+
+            from_price = prices.get(from_currency)
+            to_price = prices.get(to_currency)
+
+            if not from_price or not to_price:
+                logger.error(f"Cannot get prices for conversion: {from_currency} -> {to_currency}")
+                return None
+
+            # Конвертируем: amount * (price_from / price_to)
+            result = amount * (from_price.price / to_price.price)
+            return result
+
+        except Exception as e:
+            logger.error(f"Error converting currency: {e}")
+            return None
+
     def clear_cache(self):
         """Очищает кэш цен"""
         self.cache.clear()

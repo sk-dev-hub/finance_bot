@@ -2,7 +2,8 @@
 from typing import Dict, List, Optional
 from .factory import asset_factory
 from .base import BaseAsset
-from src.config.assets import get_all_assets, get_enabled_assets, get_crypto_assets
+from src.config.assets import get_all_assets, get_enabled_assets, get_crypto_assets, get_fiat_assets
+from src.config.assets import get_precious_metal_assets
 
 
 class AssetRegistry:
@@ -15,8 +16,13 @@ class AssetRegistry:
     def _load_assets(self):
         """Загружает все активы из конфигурации"""
         for config in get_enabled_assets():
-            asset = asset_factory.create_asset(config)
-            self._assets[config.symbol] = asset
+            try:
+                asset = asset_factory.create_asset(config)
+                self._assets[config.symbol] = asset
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to create asset {config.symbol}: {e}")
 
     def get_asset(self, symbol: str) -> Optional[BaseAsset]:
         """Получает актив по символу"""
@@ -41,6 +47,26 @@ class AssetRegistry:
         """Возвращает крипто активы"""
         return [asset for asset in self._assets.values()
                 if asset.asset_type.value == "crypto"]
+
+    def get_fiat_assets(self) -> List[BaseAsset]:
+        """Возвращает фиатные активы"""
+        return [asset for asset in self._assets.values()
+                if asset.asset_type.value == "fiat"]
+
+    def get_precious_metal_assets(self) -> List[BaseAsset]:
+        """Возвращает активы из драгоценных металлов"""
+        return [asset for asset in self._assets.values()
+                if asset.asset_type.value == "precious_metal"]
+
+    def get_gold_assets(self) -> List[BaseAsset]:
+        """Возвращает золотые активы"""
+        return [asset for asset in self._assets.values()
+                if asset.asset_type.value == "precious_metal" and "gold" in asset.symbol]
+
+    def get_silver_assets(self) -> List[BaseAsset]:
+        """Возвращает серебряные активы"""
+        return [asset for asset in self._assets.values()
+                if asset.asset_type.value == "precious_metal" and "silver" in asset.symbol]
 
     def get_assets_by_type(self, asset_type: str) -> List[BaseAsset]:
         """Возвращает активы по типу"""

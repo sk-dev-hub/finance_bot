@@ -40,6 +40,41 @@ def get_supported_assets_text() -> str:
     return text
 
 
+def get_precious_metals_text() -> str:
+    """Возвращает текст со списком драгоценных металлов"""
+    precious_metals = asset_registry.get_precious_metal_assets()
+
+    if not precious_metals:
+        return "Драгоценные металлы не поддерживаются."
+
+    text = ""
+    for asset in precious_metals:
+        text += f"{asset.display_name}\n"
+
+    return text
+
+
+def get_all_supported_assets_with_details() -> str:
+    """Возвращает детальный текст со всеми активами"""
+    crypto_assets = asset_registry.get_crypto_assets()
+    fiat_assets = asset_registry.get_fiat_assets()
+    precious_metals = asset_registry.get_precious_metal_assets()
+
+    text = "💎 **Криптовалюты:**\n"
+    for asset in crypto_assets:
+        text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol.upper()}`)\n"
+
+    text += "\n💵 **Фиатные валюты:**\n"
+    for asset in fiat_assets:
+        text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol.upper()}`)\n"
+
+    text += "\n🥇 **Драгоценные металлы:**\n"
+    for asset in precious_metals:
+        text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol}`)\n"
+
+    return text
+
+
 def get_supported_assets_detailed() -> str:
     """Возвращает детальный список активов с примерами"""
     assets = asset_registry.get_all_assets()
@@ -72,6 +107,35 @@ def get_supported_assets_detailed() -> str:
 
     return text
 
+
+def get_supported_fiat_text() -> str:
+    """Возвращает текст со списком поддерживаемых фиатных валют"""
+    fiat_assets = asset_registry.get_fiat_assets()
+
+    if not fiat_assets:
+        return "Фиатные валюты не поддерживаются."
+
+    text = ""
+    for asset in fiat_assets:
+        text += f"{asset.display_name}\n"
+
+    return text
+
+
+def get_all_supported_assets_text() -> str:
+    """Возвращает текст со всеми поддерживаемыми активами"""
+    crypto_assets = asset_registry.get_crypto_assets()
+    fiat_assets = asset_registry.get_fiat_assets()
+
+    text = "💎 **Криптовалюты:**\n"
+    for asset in crypto_assets:
+        text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol.upper()}`)\n"
+
+    text += "\n💵 **Фиатные валюты:**\n"
+    for asset in fiat_assets:
+        text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol.upper()}`)\n"
+
+    return text
 
 def format_currency(value: float) -> str:
     """Форматирует денежное значение"""
@@ -123,35 +187,45 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Получаем список активов
     supported_assets = get_supported_assets_text()
+    all_assets = get_all_supported_assets_with_details()
 
     welcome_text = f"""
-👋 Привет, {get_user_display_name(update)}!
+    👋 Привет, {get_user_display_name(update)}!
 
-Я — бот для отслеживания стоимости криптовалютного портфеля.
+    Я — бот для отслеживания стоимости портфеля.
 
-📊 **Доступные команды:**
-/portfolio — Посмотреть мой портфель
-/add — Добавить актив
-/remove — Удалить актив
-/prices — Текущие цены
-/coins — Список криптовалют
-/settings — Настройки
-/help — Помощь и инструкции
+    📊 **Доступные команды:**
+    /portfolio — Посмотреть мой портфель
+    /add — Добавить актив
+    /remove — Удалить актив
+    /prices — Текущие цены крипто
+    /coins — Список криптовалют
+    /currencies — Список валют
+    /metals — Драгоценные металлы
+    /settings — Настройки
+    /help — Помощь и инструкции
 
-🏦 **Поддерживаемые активы:**
-{supported_assets}
-Чтобы добавить актив, используйте команду:
-`/add btc 0.5` — добавить 0.5 BTC
-`/add eth 2.0` — добавить 2 ETH
-`/add ton 100` — добавить 100 TON
+    🏦 **Поддерживаемые активы:**
+    {all_assets}
+    **Примеры использования:**
+    Криптовалюты:
+    `/add btc 0.5` — добавить 0.5 Bitcoin
 
-💰 **Бот автоматически:**
-• Отслеживает текущие цены
-• Сохраняет ваш портфель
-• Показывает общую стоимость
+    Валюты:
+    `/add rub 10000` — добавить 10,000 рублей
 
-_Начните с добавления первого актива!_
-"""
+    Драгоценные металлы:
+    `/add gold_coin_7_78 2` — добавить 2 золотые монеты по 7.78г
+    `/add silver_coin_31_1 5` — добавить 5 серебряных монет по 31.1г
+
+    💰 **Бот автоматически:**
+    • Отслеживает текущие цены
+    • Конвертирует все активы в USD
+    • Сохраняет ваш портфель
+    • Показывает общую стоимость
+
+    _Начните с добавления первого актива!_
+    """
 
     await context.bot.send_message(
         chat_id=chat_id,
@@ -839,6 +913,142 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def metals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /metals - показывает драгоценные металлы"""
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    user_repo.record_user_activity(user.id, "metals")
+
+    # Получаем драгоценные металлы
+    precious_metals = asset_registry.get_precious_metal_assets()
+
+    if not precious_metals:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ **Нет доступных драгоценных металлов**\n\n"
+                 "Пожалуйста, попробуйте позже.",
+            parse_mode="Markdown"
+        )
+        return
+
+    # Получаем текущие цены
+    symbols = [asset.symbol for asset in precious_metals]
+    prices = await price_service.get_prices(symbols)
+
+    message = "🥇 **Драгоценные металлы:**\n\n"
+
+    # Золотые монеты
+    gold_assets = [asset for asset in precious_metals if "gold" in asset.symbol]
+    if gold_assets:
+        message += "**💰 Золотые монеты:**\n"
+        for asset in gold_assets:
+            price_data = prices.get(asset.symbol)
+
+            message += f"{asset.config.emoji} **{asset.config.name}**\n"
+
+            if hasattr(asset, 'get_metal_info'):
+                info = asset.get_metal_info()
+                message += f"   Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
+                message += f"   Чистота: {info['purity'] * 100:.2f}%\n"
+
+            if price_data and price_data.price:
+                message += f"   Цена: ${price_data.price:.2f}\n"
+
+            message += f"   Пример: `/add {asset.symbol} 1`\n\n"
+
+    # Серебряные монеты
+    silver_assets = [asset for asset in precious_metals if "silver" in asset.symbol]
+    if silver_assets:
+        message += "**🥈 Серебряные монеты:**\n"
+        for asset in silver_assets:
+            price_data = prices.get(asset.symbol)
+
+            message += f"{asset.config.emoji} **{asset.config.name}**\n"
+
+            if hasattr(asset, 'get_metal_info'):
+                info = asset.get_metal_info()
+                message += f"   Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
+                message += f"   Чистота: {info['purity'] * 100:.2f}%\n"
+
+            if price_data and price_data.price:
+                message += f"   Цена: ${price_data.price:.2f}\n"
+
+            message += f"   Пример: `/add {asset.symbol} 1`\n\n"
+
+    message += "─" * 30 + "\n"
+    message += "📝 **Как использовать:**\n"
+    message += "1. `/add gold_coin_7_78 2` — добавить 2 золотые монеты по 7.78г\n"
+    message += "2. `/add silver_coin_31_1 5` — добавить 5 серебряных монет по 31.1г\n"
+    message += "3. `/portfolio` — посмотреть общую стоимость в USD\n\n"
+
+    message += "💡 **Примечание:** Цены рассчитываются на основе текущих биржевых котировок золота и серебра с учетом премии за чеканку."
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=message,
+        parse_mode="Markdown"
+    )
+
+    async def update_metal_prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Обработчик команды /update_metal_prices - обновляет цены на металлы"""
+        user = update.effective_user
+        chat_id = update.effective_chat.id
+
+        # Проверяем права (можно сделать для админов)
+        if len(context.args) != 2:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ **Неправильный формат команды**\n\n"
+                     "Используйте: `/update_metal_prices <металл> <цена>`\n"
+                     "Примеры:\n"
+                     "`/update_metal_prices gold 65.5` — установить цену золота $65.5/г\n"
+                     "`/update_metal_prices silver 0.88` — установить цену серебра $0.88/г",
+                parse_mode="Markdown"
+            )
+            return
+
+        metal_type = context.args[0].lower()
+        try:
+            price = float(context.args[1])
+            if price <= 0:
+                raise ValueError
+        except ValueError:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ **Некорректная цена**\n\n"
+                     "Цена должна быть положительным числом.",
+                parse_mode="Markdown"
+            )
+            return
+
+        # Обновляем цены у всех активов из драгметаллов
+        updated_count = 0
+        precious_metals = asset_registry.get_precious_metal_assets()
+
+        for asset in precious_metals:
+            if hasattr(asset, 'update_metal_price'):
+                # Проверяем тип металла
+                if metal_type == "gold" and "gold" in asset.symbol:
+                    asset.update_metal_price("gold", price)
+                    updated_count += 1
+                elif metal_type == "silver" and "silver" in asset.symbol:
+                    asset.update_metal_price("silver", price)
+                    updated_count += 1
+
+        # Очищаем кэш цен
+        price_service.clear_cache()
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"✅ **Цены обновлены**\n\n"
+                 f"Установлена цена {metal_type}: ${price:.2f} за грамм\n"
+                 f"Обновлено активов: {updated_count}\n\n"
+                 f"💡 Используйте `/portfolio` чтобы увидеть новые стоимости.",
+            parse_mode="Markdown"
+        )
+
+
 # ============================================================================
 # Функция для получения всех обработчиков
 # ============================================================================
@@ -853,6 +1063,7 @@ def get_all_commands() -> Dict[str, callable]:
         "remove": remove_command,
         "prices": prices_command,
         "coins": coins_command,
+        "metals": metals_command,
         "assets": assets_command,
         "settings": settings_command,
         "stats": stats_command,

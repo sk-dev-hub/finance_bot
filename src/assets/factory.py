@@ -2,6 +2,8 @@
 from typing import Dict, Optional
 from src.config.assets import AssetConfig, AssetType
 from .crypto import CryptoAsset
+from .fiat import FiatAsset
+from .precious_metal import PreciousMetalAsset
 from .base import BaseAsset
 
 
@@ -11,6 +13,8 @@ class AssetFactory:
     # Регистр классов активов по типу
     _asset_classes = {
         AssetType.CRYPTO: CryptoAsset,
+        AssetType.FIAT: FiatAsset,
+        AssetType.PRECIOUS_METAL: PreciousMetalAsset,
         # AssetType.STOCK: StockAsset,  # Добавить при необходимости
         # AssetType.ETF: ETFAsset,      # Добавить при необходимости
     }
