@@ -251,6 +251,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /remove — Удалить актив из портфеля
 /prices — Текущие цены криптовалют
 /coins — Список всех криптовалют
+/currencies — Список валют
 /settings — Настройки бота
 /help — Эта справка
 
@@ -730,6 +731,76 @@ async def coins_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def currencies_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /currencies - показывает список фиатных валют"""
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    logger.info(f"User {user.id} requested currencies")
+    user_repo.record_user_activity(user.id, "currencies")
+
+    # Получаем все фиатные активы
+    fiat_assets = asset_registry.get_fiat_assets()
+
+    if not fiat_assets:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ **Нет доступных фиатных валют**\n\n"
+                 "Пожалуйста, попробуйте позже.",
+            parse_mode="Markdown"
+        )
+        return
+
+    message = "💵 **Доступные фиатные валюты:**\n\n"
+
+    # Получаем текущие цены (курсы валют к USD)
+    symbols = [asset.symbol for asset in fiat_assets]
+    prices_result = await price_service.get_prices(symbols)
+
+    for asset in fiat_assets:
+        price_data = prices_result.get(asset.symbol)
+
+        message += f"{asset.config.emoji} **{asset.config.name}**\n"
+        message += f"   Символ: `{asset.symbol.upper()}`\n"
+
+        if price_data and price_data.price:
+            price = price_data.price
+            # Для валют показываем курс к USD (1 USD = X валюта)
+            if asset.symbol == "usd":
+                message += f"   Курс: 1 USD = 1.0000 {asset.symbol.upper()}\n"
+            else:
+                message += f"   Курс: 1 USD = {1 / price:.4f} {asset.symbol.upper()}\n"
+                message += f"   (1 {asset.symbol.upper()} = ${price:.4f})\n"
+        else:
+            message += f"   Курс: ❌ временно недоступен\n"
+
+        # Пример добавления
+        if asset.symbol == "rub":
+            message += f"   Пример: `/add rub 1000`\n\n"
+        elif asset.symbol == "eur":
+            message += f"   Пример: `/add eur 100`\n\n"
+        elif asset.symbol == "usd":
+            message += f"   Пример: `/add usd 100`\n\n"
+        else:
+            message += f"   Пример: `/add {asset.symbol} 100`\n\n"
+
+    message += "-" * 30 + "\n"
+    message += "📝 **Как использовать:**\n"
+    message += "1. `/add rub 10000` — добавить 10,000 рублей\n"
+    message += "2. `/add eur 500` — добавить 500 евро\n"
+    message += "3. `/portfolio` — посмотреть общую стоимость в USD\n\n"
+
+    message += "💡 **Примечание:**\n"
+    message += "• Все валюты конвертируются в USD по текущему курсу\n"
+    message += "• Цены обновляются каждую минуту\n"
+    message += "• Источник: CoinGecko API"
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=message,
+        parse_mode="Markdown"
+    )
+
 async def assets_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /assets - альтернативное название для /coins"""
     await coins_command(update, context)
@@ -1063,6 +1134,7 @@ def get_all_commands() -> Dict[str, callable]:
         "remove": remove_command,
         "prices": prices_command,
         "coins": coins_command,
+        "currencies": currencies_command,
         "metals": metals_command,
         "assets": assets_command,
         "settings": settings_command,
