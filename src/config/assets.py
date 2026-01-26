@@ -259,6 +259,46 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         aliases=["серебряная монета 31.1", "silver coin 31.1g", "silver_ounce"]
     ),
 
+    # ================= ТОВАРЫ =================
+    "product_1": AssetConfig(
+        symbol="product_1",
+        name="Товар 1",
+        asset_type=AssetType.COMMODITY,
+        emoji="📦",
+        display_precision=2,
+        price_source="static",
+        description="Товар 1 (описание можно добавить позже)",
+        min_amount=1,
+        max_amount=10000,
+        aliases=["товар1", "продукт1", "item1"]
+    ),
+
+    "product_2": AssetConfig(
+        symbol="product_2",
+        name="Товар 2",
+        asset_type=AssetType.COMMODITY,
+        emoji="📦",
+        display_precision=2,
+        price_source="static",
+        description="Товар 2 (описание можно добавить позже)",
+        min_amount=1,
+        max_amount=10000,
+        aliases=["товар2", "продукт2", "item2"]
+    ),
+
+    "product_3": AssetConfig(
+        symbol="product_3",
+        name="Товар 3",
+        asset_type=AssetType.COMMODITY,
+        emoji="📦",
+        display_precision=2,
+        price_source="static",
+        description="Товар 3 (описание можно добавить позже)",
+        min_amount=1,
+        max_amount=10000,
+        aliases=["товар3", "продукт3", "item3"]
+    ),
+
     # Можно добавить больше валют по аналогии
 
 # ================= АКЦИИ =================
@@ -359,6 +399,10 @@ def is_asset_supported(symbol: str) -> bool:
         return True
     except ValueError:
         return False
+
+def get_commodity_assets() -> List[AssetConfig]:
+    """Возвращает список товаров"""
+    return get_assets_by_type(AssetType.COMMODITY)
 
 
 def format_amount(amount: float, symbol: str) -> str:

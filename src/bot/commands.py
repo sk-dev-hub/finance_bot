@@ -59,6 +59,7 @@ def get_all_supported_assets_with_details() -> str:
     crypto_assets = asset_registry.get_crypto_assets()
     fiat_assets = asset_registry.get_fiat_assets()
     precious_metals = asset_registry.get_precious_metal_assets()
+    commodities = asset_registry.get_commodity_assets()
 
     text = "💎 **Криптовалюты:**\n"
     for asset in crypto_assets:
@@ -70,6 +71,10 @@ def get_all_supported_assets_with_details() -> str:
 
     text += "\n🥇 **Драгоценные металлы:**\n"
     for asset in precious_metals:
+        text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol}`)\n"
+
+    text += "\n📦 **Товары:**\n"
+    for asset in commodities:
         text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol}`)\n"
 
     return text
@@ -134,6 +139,20 @@ def get_all_supported_assets_text() -> str:
     text += "\n💵 **Фиатные валюты:**\n"
     for asset in fiat_assets:
         text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol.upper()}`)\n"
+
+    return text
+
+
+def get_commodities_text() -> str:
+    """Возвращает текст со списком товаров"""
+    commodities = asset_registry.get_commodity_assets()
+
+    if not commodities:
+        return "Товары не поддерживаются."
+
+    text = ""
+    for asset in commodities:
+        text += f"{asset.display_name}\n"
 
     return text
 
@@ -202,6 +221,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /coins — Список криптовалют
     /currencies — Список валют
     /metals — Драгоценные металлы
+    /products — Товары
     /settings — Настройки
     /help — Помощь и инструкции
 
@@ -217,6 +237,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Драгоценные металлы:
     `/add gold_coin_7_78 2` — добавить 2 золотые монеты по 7.78г
     `/add silver_coin_31_1 5` — добавить 5 серебряных монет по 31.1г
+
+    Товары:
+    `/add product_1 10` — добавить 10 единиц Товара 
 
     💰 **Бот автоматически:**
     • Отслеживает текущие цены
@@ -801,6 +824,59 @@ async def currencies_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         parse_mode="Markdown"
     )
 
+
+async def products_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /products - показывает товары"""
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    user_repo.record_user_activity(user.id, "products")
+
+    # Получаем товары
+    commodities = asset_registry.get_commodity_assets()
+
+    if not commodities:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ **Нет доступных товаров**\n\n"
+                 "Товары еще не добавлены.",
+            parse_mode="Markdown"
+        )
+        return
+
+    # Получаем цены
+    symbols = [asset.symbol for asset in commodities]
+    prices = await price_service.get_prices(symbols)
+
+    message = "📦 **Доступные товары:**\n\n"
+
+    for asset in commodities:
+        price_data = prices.get(asset.symbol)
+
+        message += f"{asset.config.emoji} **{asset.config.name}**\n"
+        message += f"   Код: `{asset.symbol}`\n"
+
+        if price_data and price_data.price:
+            message += f"   Цена: ${price_data.price:.2f}\n"
+        else:
+            message += f"   Цена: не установлена\n"
+
+        message += f"   Пример: `/add {asset.symbol} 10`\n\n"
+
+    message += "─" * 30 + "\n"
+    message += "📝 **Как использовать:**\n"
+    message += "1. `/add product_1 5` — добавить 5 единиц Товара 1\n"
+    message += "2. `/portfolio` — посмотреть общую стоимость\n"
+    message += "3. `/remove product_1 2` — удалить 2 единицы\n\n"
+
+    message += "💡 **Примечание:** Цены товаров статические, можно обновить через администратора."
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=message,
+        parse_mode="Markdown"
+    )
+
 async def assets_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /assets - альтернативное название для /coins"""
     await coins_command(update, context)
@@ -877,6 +953,75 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=chat_id,
         text=message,
+        parse_mode="Markdown"
+    )
+
+
+async def update_product_price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /update_product_price - обновляет цену товара"""
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    # Простая проверка (можно улучшить)
+    if user.id != 123456789:  # Замените на ваш ID
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ **Доступ запрещен**\n\n"
+                 "Эта команда только для администраторов.",
+            parse_mode="Markdown"
+        )
+        return
+
+    # Проверяем аргументы
+    if len(context.args) != 2:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ **Неправильный формат**\n\n"
+                 "Используйте: `/update_product_price <код_товара> <цена>`\n"
+                 "Примеры:\n"
+                 "`/update_product_price product_1 120.5`\n"
+                 "`/update_product_price product_2 300`",
+            parse_mode="Markdown"
+        )
+        return
+
+    product_code = context.args[0].lower()
+    try:
+        new_price = float(context.args[1])
+        if new_price <= 0:
+            raise ValueError
+    except ValueError:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ **Некорректная цена**\n\n"
+                 "Цена должна быть положительным числом.",
+            parse_mode="Markdown"
+        )
+        return
+
+    # Обновляем цену
+    asset = asset_registry.get_asset(product_code)
+    if not asset or not hasattr(asset, 'update_price'):
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"❌ **Товар не найден**\n\n"
+                 f"Товар с кодом `{product_code}` не существует.",
+            parse_mode="Markdown"
+        )
+        return
+
+    # Обновляем цену
+    asset.update_price(new_price)
+
+    # Очищаем кэш цен
+    price_service.clear_cache()
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"✅ **Цена обновлена**\n\n"
+             f"Товар: {asset.config.name}\n"
+             f"Новая цена: ${new_price:.2f}\n\n"
+             f"💡 Используйте `/products` чтобы увидеть изменения.",
         parse_mode="Markdown"
     )
 
@@ -1136,6 +1281,7 @@ def get_all_commands() -> Dict[str, callable]:
         "coins": coins_command,
         "currencies": currencies_command,
         "metals": metals_command,
+        "products": products_command,
         "assets": assets_command,
         "settings": settings_command,
         "stats": stats_command,

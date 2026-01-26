@@ -4,6 +4,7 @@ from .factory import asset_factory
 from .base import BaseAsset
 from src.config.assets import get_all_assets, get_enabled_assets, get_crypto_assets, get_fiat_assets
 from src.config.assets import get_precious_metal_assets
+from src.config.assets import get_commodity_assets
 
 
 class AssetRegistry:
@@ -67,6 +68,11 @@ class AssetRegistry:
         """Возвращает серебряные активы"""
         return [asset for asset in self._assets.values()
                 if asset.asset_type.value == "precious_metal" and "silver" in asset.symbol]
+
+    def get_commodity_assets(self) -> List[BaseAsset]:
+        """Возвращает товары"""
+        return [asset for asset in self._assets.values()
+                if asset.asset_type.value == "commodity"]
 
     def get_assets_by_type(self, asset_type: str) -> List[BaseAsset]:
         """Возвращает активы по типу"""
