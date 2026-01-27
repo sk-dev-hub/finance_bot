@@ -18,6 +18,7 @@ class AssetType(Enum):
     ETF = "etf"
     BOND = "bond"
     COMMODITY = "commodity"
+    RECEIVABLE = "receivable"
 
 
 @dataclass
@@ -299,6 +300,33 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         aliases=["товар3", "продукт3", "item3"]
     ),
 
+    # ================= ДЕБИТОРСКАЯ ЗАДОЛЖЕННОСТЬ =================
+    "receivable_ecm": AssetConfig(
+        symbol="receivable_ecm",
+        name="Дебиторская задолженность (ЕЦМ)",
+        asset_type=AssetType.RECEIVABLE,  # Новый тип
+        emoji="🧾",
+        display_precision=2,
+        price_source="static",
+        description="Дебиторская задолженность компании ЕЦМ",
+        min_amount=100,
+        max_amount=10000000,
+        aliases=["есм", "ecm", "дебиторка есм", "задолженность есм"]
+    ),
+
+    "receivable_ozon": AssetConfig(
+        symbol="receivable_ozon",
+        name="Дебиторская задолженность (Ozon)",
+        asset_type=AssetType.RECEIVABLE,
+        emoji="📦",
+        display_precision=2,
+        price_source="static",
+        description="Дебиторская задолженность компании Ozon",
+        min_amount=100,
+        max_amount=10000000,
+        aliases=["озон", "ozon", "дебиторка озона", "задолженность озона"]
+    ),
+
     # Можно добавить больше валют по аналогии
 
 # ================= АКЦИИ =================
@@ -403,6 +431,10 @@ def is_asset_supported(symbol: str) -> bool:
 def get_commodity_assets() -> List[AssetConfig]:
     """Возвращает список товаров"""
     return get_assets_by_type(AssetType.COMMODITY)
+
+def get_receivable_assets() -> List[AssetConfig]:
+    """Возвращает список дебиторской задолженности"""
+    return get_assets_by_type(AssetType.RECEIVABLE)
 
 
 def format_amount(amount: float, symbol: str) -> str:

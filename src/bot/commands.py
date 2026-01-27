@@ -60,6 +60,7 @@ def get_all_supported_assets_with_details() -> str:
     fiat_assets = asset_registry.get_fiat_assets()
     precious_metals = asset_registry.get_precious_metal_assets()
     commodities = asset_registry.get_commodity_assets()
+    receivables = asset_registry.get_receivable_assets()
 
     text = "💎 **Криптовалюты:**\n"
     for asset in crypto_assets:
@@ -75,6 +76,10 @@ def get_all_supported_assets_with_details() -> str:
 
     text += "\n📦 **Товары:**\n"
     for asset in commodities:
+        text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol}`)\n"
+
+    text += "\n🧾 **Дебиторская задолженность:**\n"
+    for asset in receivables:
         text += f"{asset.config.emoji} {asset.config.name} (`{asset.symbol}`)\n"
 
     return text
@@ -156,6 +161,20 @@ def get_commodities_text() -> str:
 
     return text
 
+
+def get_receivables_text() -> str:
+    """Возвращает текст со списком дебиторской задолженности"""
+    receivables = asset_registry.get_receivable_assets()
+
+    if not receivables:
+        return "Дебиторская задолженность не поддерживается."
+
+    text = ""
+    for asset in receivables:
+        text += f"{asset.display_name}\n"
+
+    return text
+
 def format_currency(value: float) -> str:
     """Форматирует денежное значение"""
     return f"${value:,.2f}"
@@ -222,6 +241,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /currencies — Список валют
     /metals — Драгоценные металлы
     /products — Товары
+    /receivables — Дебиторская задолженность
     /settings — Настройки
     /help — Помощь и инструкции
 
@@ -240,6 +260,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     Товары:
     `/add product_1 10` — добавить 10 единиц Товара 
+    
+    Дебиторская задолженность:
+    `/add receivable_ecm 100000` — добавить дебиторку ЕЦМ $100,000
 
     💰 **Бот автоматически:**
     • Отслеживает текущие цены
@@ -877,6 +900,51 @@ async def products_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+
+async def receivables_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /receivables - показывает дебиторскую задолженность"""
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    user_repo.record_user_activity(user.id, "receivables")
+
+    # Получаем дебиторскую задолженность
+    receivables = asset_registry.get_receivable_assets()
+
+    if not receivables:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ **Нет доступной дебиторской задолженности**",
+            parse_mode="Markdown"
+        )
+        return
+
+    message = "🧾 **Дебиторская задолженность:**\n\n"
+
+    for asset in receivables:
+        # Для задолженности получаем информацию о дисконте
+        discount = getattr(asset, 'discount_factor', {}).get(asset.symbol, 1.0)
+        discount_percent = (1 - discount) * 100
+
+        message += f"{asset.config.emoji} **{asset.config.name}**\n"
+        message += f"   Код: `{asset.symbol}`\n"
+        message += f"   Дисконт: {discount_percent:.1f}%\n"
+        message += f"   Пример: `/add {asset.symbol} 50000` — добавить задолженность $50,000\n\n"
+
+    message += "─" * 30 + "\n"
+    message += "📝 **Как использовать:**\n"
+    message += "1. `/add receivable_ecm 100000` — добавить дебиторку ЕЦМ $100,000\n"
+    message += "2. `/portfolio` — посмотреть в портфеле\n"
+    message += "3. `/remove receivable_ecm 50000` — списать $50,000\n\n"
+
+    message += "💡 **Примечание:** Стоимость может учитывать дисконт (риск непогашения)."
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=message,
+        parse_mode="Markdown"
+    )
+
 async def assets_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /assets - альтернативное название для /coins"""
     await coins_command(update, context)
@@ -1282,6 +1350,7 @@ def get_all_commands() -> Dict[str, callable]:
         "currencies": currencies_command,
         "metals": metals_command,
         "products": products_command,
+        "receivables": receivables_command,
         "assets": assets_command,
         "settings": settings_command,
         "stats": stats_command,
