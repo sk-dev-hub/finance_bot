@@ -80,6 +80,11 @@ class AssetRegistry:
         return [asset for asset in self._assets.values()
                 if asset.asset_type.value == "receivable"]
 
+    def get_etf_assets(self) -> List[BaseAsset]:
+        """Возвращает ETF активы"""
+        return [asset for asset in self._assets.values()
+                if asset.asset_type.value == "etf"]
+
     def get_assets_by_type(self, asset_type: str) -> List[BaseAsset]:
         """Возвращает активы по типу"""
         return [asset for asset in self._assets.values()

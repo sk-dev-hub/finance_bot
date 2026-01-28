@@ -17,7 +17,7 @@ def get_all_commands() -> Dict[str, Callable]:
     from .commands.basic import start_command, help_command, settings_command
     from .commands.portfolio import portfolio_command, add_command, remove_command, clear_command
     from .commands.assets import coins_command, currencies_command, metals_command, products_command, \
-        receivables_command, assets_command
+        receivables_command, assets_command, etfs_command
     from .commands.price import prices_command, stats_command
 
     commands = {
@@ -43,6 +43,7 @@ def get_all_commands() -> Dict[str, Callable]:
         "products": products_command,
         "receivables": receivables_command,
         "assets": assets_command,
+        "etfs": etfs_command,
     }
 
     logger.info(f"Loaded {len(commands)} command handlers")

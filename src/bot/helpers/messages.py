@@ -24,6 +24,7 @@ def get_welcome_message(username: str) -> str:
 /metals — Драгоценные металлы
 /products — Товары
 /receivables — Дебиторская задолженность
+/etfs — список всех ETF
 /settings — Настройки
 /help — Помощь и инструкции
 
@@ -50,6 +51,8 @@ def get_help_message(username: str) -> str:
 /prices — Текущие цены криптовалют
 /coins — Список всех криптовалют
 /currencies — Список валют
+/receivables — Дебиторская задолженность
+/etfs — список всех ETF
 /settings — Настройки бота
 /help — Эта справка
 
@@ -329,5 +332,46 @@ def get_receivables_assets_message(assets: List) -> str:
     message += "3. `/remove receivable_ecm 50000` — списать $50,000\n\n"
 
     message += "💡 **Примечание:** Стоимость учитывает дисконт (риск непогашения)."
+
+    return message
+
+
+def get_etf_assets_message(assets: List, prices_info: Dict) -> str:
+    """Сообщение со списком ETF"""
+    if not assets:
+        return "❌ **Нет доступных ETF**\n\nETF еще не добавлены."
+
+    message = "📊 **Доступные ETF:**\n\n"
+
+    for asset in assets:
+        price_info = prices_info.get(asset.symbol, {})
+
+        message += f"{asset.config.emoji} **{asset.config.name}**\n"
+        message += f"   Символ: `{asset.symbol.upper()}`\n"
+
+        if price_info.get("price"):
+            price = price_info["price"]
+            # Определяем валюту по тикеру
+            if asset.symbol == "fxgd":
+                message += f"   Цена: {price:,.2f} ₽\n"
+            else:
+                message += f"   Цена: ${price:.2f}\n"
+
+        # Информация о комиссии для FXGD
+        if asset.symbol == "fxgd":
+            message += f"   Комиссия: 0.45%\n"
+            message += f"   1 акция ≈ 0.1g золота\n"
+
+        message += f"   Пример: `/add {asset.symbol} 10`\n\n"
+
+    message += "─" * 30 + "\n"
+    message += "💡 **ETF (Exchange Traded Fund)** — биржевой инвестиционный фонд,\n"
+    message += "акции которого торгуются на бирже как обычные акции.\n\n"
+
+    message += "📈 **Преимущества FXGD:**\n"
+    message += "• Ликвидность (торгуется на MOEX)\n"
+    message += "• Низкий порог входа\n"
+    message += "• Прозрачная структура\n"
+    message += "• Физическое обеспечение золотом\n"
 
     return message

@@ -260,6 +260,34 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         aliases=["серебряная монета 31.1", "silver coin 31.1g", "silver_ounce"]
     ),
 
+
+    # ================= ДЕБИТОРСКАЯ ЗАДОЛЖЕННОСТЬ =================
+    "receivable_ecm": AssetConfig(
+        symbol="receivable_ecm",
+        name="Дебиторская задолженность (ЕЦМ)",
+        asset_type=AssetType.RECEIVABLE,  # Новый тип
+        emoji="🧾",
+        display_precision=2,
+        price_source="static",
+        description="Дебиторская задолженность компании ЕЦМ",
+        min_amount=100,
+        max_amount=10000000,
+        aliases=["есм", "ecm", "дебиторка есм", "задолженность есм"]
+    ),
+
+    "receivable_ozon": AssetConfig(
+        symbol="receivable_ozon",
+        name="Дебиторская задолженность (Ozon)",
+        asset_type=AssetType.RECEIVABLE,
+        emoji="📦",
+        display_precision=2,
+        price_source="static",
+        description="Дебиторская задолженность компании Ozon",
+        min_amount=100,
+        max_amount=10000000,
+        aliases=["озон", "ozon", "дебиторка озона", "задолженность озона"]
+    ),
+
     # ================= ТОВАРЫ =================
     "product_1": AssetConfig(
         symbol="product_1",
@@ -300,31 +328,22 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         aliases=["товар3", "продукт3", "item3"]
     ),
 
-    # ================= ДЕБИТОРСКАЯ ЗАДОЛЖЕННОСТЬ =================
-    "receivable_ecm": AssetConfig(
-        symbol="receivable_ecm",
-        name="Дебиторская задолженность (ЕЦМ)",
-        asset_type=AssetType.RECEIVABLE,  # Новый тип
-        emoji="🧾",
-        display_precision=2,
-        price_source="static",
-        description="Дебиторская задолженность компании ЕЦМ",
-        min_amount=100,
-        max_amount=10000000,
-        aliases=["есм", "ecm", "дебиторка есм", "задолженность есм"]
-    ),
+# ================= ETF =================
 
-    "receivable_ozon": AssetConfig(
-        symbol="receivable_ozon",
-        name="Дебиторская задолженность (Ozon)",
-        asset_type=AssetType.RECEIVABLE,
-        emoji="📦",
+    "fxgd": AssetConfig(
+        symbol="fxgd",
+        name="FinEx Физическое золото",
+        asset_type=AssetType.ETF,
+        emoji="🏅",
         display_precision=2,
-        price_source="static",
-        description="Дебиторская задолженность компании Ozon",
-        min_amount=100,
-        max_amount=10000000,
-        aliases=["озон", "ozon", "дебиторка озона", "задолженность озона"]
+        price_source="moex",  # Меняем на moex
+        source_id="FXGD",  # Тикер на MOEX
+        aliases=["finex_gold", "золотой_etf", "etf_золото", "физическое_золото", "fxgd_rub"],
+        description="Биржевой инвестиционный фонд FinEx Физическое золото (тикер: FXGD). "
+                    "Каждая акция соответствует 0.1 грамма золота. Торгуется на Московской бирже.",
+        min_amount=0.01,
+        max_amount=1000000,
+        enabled=True
     ),
 
     # Можно добавить больше валют по аналогии
@@ -435,6 +454,10 @@ def get_commodity_assets() -> List[AssetConfig]:
 def get_receivable_assets() -> List[AssetConfig]:
     """Возвращает список дебиторской задолженности"""
     return get_assets_by_type(AssetType.RECEIVABLE)
+
+def get_etf_assets() -> List[AssetConfig]:
+    """Возвращает список ETF"""
+    return get_assets_by_type(AssetType.ETF)
 
 
 def format_amount(amount: float, symbol: str) -> str:

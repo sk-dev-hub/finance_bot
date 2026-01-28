@@ -4,9 +4,10 @@ from src.config.assets import AssetConfig, AssetType
 from .crypto import CryptoAsset
 from .fiat import FiatAsset
 from .precious_metal import PreciousMetalAsset
-from .commodity import CommodityAsset
-from .receivable import ReceivableAsset
+from .moex_etf import MoexETFAsset
 from .base import BaseAsset
+from .receivable import ReceivableAsset
+from .commodity import CommodityAsset
 
 
 class AssetFactory:
@@ -17,8 +18,9 @@ class AssetFactory:
         AssetType.CRYPTO: CryptoAsset,
         AssetType.FIAT: FiatAsset,
         AssetType.PRECIOUS_METAL: PreciousMetalAsset,
+        AssetType.ETF: MoexETFAsset,
+        AssetType.RECEIVABLE: ReceivableAsset ,
         AssetType.COMMODITY: CommodityAsset,
-        AssetType.RECEIVABLE: ReceivableAsset,
         # AssetType.STOCK: StockAsset,  # Добавить при необходимости
         # AssetType.ETF: ETFAsset,      # Добавить при необходимости
     }
