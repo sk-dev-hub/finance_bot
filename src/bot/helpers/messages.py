@@ -135,8 +135,6 @@ def get_portfolio_message(
     if last_updated:
         message += f"🔄 Обновлено: {last_updated}\n"
 
-    message += "_Источники: CoinGecko API, Binance API_"
-
     # Добавляем подсказку для управления
     if assets_count > 0:
         message += f"\n\n💡 Используйте `/remove <символ>` чтобы удалить актив"
