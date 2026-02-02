@@ -11,6 +11,7 @@ from telegram.ext import ContextTypes
 from ...database.simple_repo import portfolio_repo
 from ...assets.registry import asset_registry
 from ...services.price import price_service
+from ...services.currency_service import currency_service
 from ..helpers.formatters import format_currency, format_portfolio_asset
 from ..helpers.asset_info import get_supported_assets_detailed, get_supported_assets_text
 from ..helpers.command_utils import (
@@ -44,24 +45,37 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Получаем текущие цены для активов пользователя
         symbols = list(assets.keys())
 
+        # Используем обновленную функцию get_asset_details_with_prices
+        from ..helpers.asset_info import get_asset_details_with_prices
+        assets_details = await get_asset_details_with_prices(symbols)
+
         # Формируем информацию об активах
         assets_info = []
-        total_value = 0
+        total_value_usd = 0
 
         for symbol, asset_data in assets.items():
             amount = asset_data.get("amount", 0)
+            asset_detail = assets_details.get(symbol, {})
 
-            # Получаем цену
-            price_data = await price_service.get_price(symbol)
-            price = price_data.price if price_data else None
+            # Получаем цены из деталей актива
+            price_usd = asset_detail.get("price_usd")
+            price_rub = asset_detail.get("price_rub")
 
-            # Форматируем информацию об активе
-            asset_info = format_portfolio_asset(symbol, amount, price)
+            # Если price_rub нет в деталях, но есть price_usd, рассчитываем
+            if price_usd and not price_rub:
+                price_rub = currency_service.usd_to_rub(price_usd)
 
-            if asset_info.get("raw_value"):
-                total_value += asset_info["raw_value"]
+            # Используем обновленную функцию format_portfolio_asset с поддержкой RUB
+            asset_info = format_portfolio_asset(symbol, amount, price_usd, price_rub)
+
+            # Учитываем стоимость в общей сумме
+            if asset_info.get("value_usd"):
+                total_value_usd += asset_info["value_usd"]
 
             assets_info.append(asset_info)
+
+        # Рассчитываем общую стоимость в рублях
+        total_value_rub = currency_service.usd_to_rub(total_value_usd)
 
         # Получаем информацию о последнем обновлении
         last_updated = portfolio.get("updated_at", "")
@@ -69,7 +83,7 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = get_portfolio_message(
             get_user_display_name(update),
             assets_info,
-            total_value,
+            total_value_usd,
             last_updated,
             len(assets)
         )

@@ -12,6 +12,7 @@ from ...services.price import price_service
 from ..helpers.asset_info import get_asset_details_with_prices
 from ..helpers.command_utils import record_user_activity
 from ..helpers.formatters import format_currency, format_percentage
+from ...services.currency_service import currency_service
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,8 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 price_formatted = f"${price:,.4f}"
 
-            message += f"   Цена: {price_formatted}\n"
+            # ИЗМЕНЯЕМ ЭТУ СТРОКУ - добавляем рубли
+            message += f"   USD: {price_formatted} | RUB: {currency_service.format_rub(currency_service.usd_to_rub(price))}\n"
 
             # Добавляем изменение за 24ч
             if change is not None:
@@ -74,6 +76,7 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message += "• Используйте `/portfolio` чтобы увидеть свой портфель\n\n"
     message += "_Цены обновляются каждую минуту_\n"
     message += "_Источник: CoinGecko API_"
+    message += f"\n_Курс: 1 USD = {currency_service.usd_to_rub(1)} RUB_"
 
     await update.message.reply_text(message, parse_mode=None)
 

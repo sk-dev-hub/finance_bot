@@ -6,6 +6,7 @@
 from typing import List, Dict, Any
 from src.assets.registry import asset_registry
 from src.services.price import price_service
+from src.services.currency_service import currency_service
 
 
 def get_crypto_assets() -> List[Any]:
@@ -95,11 +96,19 @@ async def get_asset_details_with_prices(symbols: List[str]) -> Dict[str, Dict[st
         price_data = prices_result.get(symbol)
 
         if asset:
+            price_usd = price_data.price if price_data else None
+
+            # Рассчитываем стоимость в рублях
+            price_rub = None
+            if price_usd is not None:
+                price_rub = currency_service.usd_to_rub(price_usd)
+
             info = {
                 "emoji": asset.config.emoji,
                 "name": asset.config.name,
                 "symbol": asset.symbol,
-                "price": price_data.price if price_data else None,
+                "price_usd": price_usd,
+                "price_rub": price_rub,  # Добавлено поле с ценой в рублях
                 "change_24h": getattr(price_data, 'change_24h', None) if price_data else None
             }
 

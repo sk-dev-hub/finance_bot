@@ -4,6 +4,7 @@
 """
 
 from typing import Optional, Dict, Any
+from src.services.currency_service import currency_service
 
 
 def format_currency(value: float) -> str:
@@ -21,16 +22,26 @@ def format_percentage(value: float) -> str:
     return f"{value:+.1f}%" if value is not None else "0.0%"
 
 
-def format_price_for_asset(symbol: str, price: float) -> str:
-    """Форматирует цену в зависимости от типа актива"""
-    if symbol in ["btc", "eth"]:
-        return f"${price:,.2f}"
-    elif symbol in ["ton", "sol"]:
-        return f"${price:,.4f}"
-    elif symbol == "usdt":
-        return f"${price:.2f}"
-    else:
-        return f"${price:,.4f}"
+def format_price_for_asset(symbol: str, price: float, currency: str = "usd") -> str:  # Добавлен параметр currency
+    """Форматирует цену в зависимости от типа актива и валюты"""
+    if currency.lower() == "rub":
+        if price >= 1000:
+            return f"{price:,.0f} ₽"
+        elif price >= 1:
+            return f"{price:.2f} ₽"
+        else:
+            return f"{price:.4f} ₽"
+    else:  # USD по умолчанию
+        if symbol in ["btc", "eth"]:
+            return f"${price:,.2f}"
+        elif symbol in ["ton", "sol"]:
+            return f"${price:,.4f}"
+        elif symbol == "usdt":
+            return f"${price:.2f}"
+        else:
+            return f"${price:,.4f}"
+
+
 
 
 def format_amount_for_asset(symbol: str, amount: float) -> str:
@@ -48,23 +59,38 @@ def format_amount_for_asset(symbol: str, amount: float) -> str:
 def format_portfolio_asset(
         symbol: str,
         amount: float,
-        price: Optional[float] = None
+        price_usd: Optional[float] = None,
+        price_rub: Optional[float] = None  # Добавлен параметр
 ) -> Dict[str, Any]:
     """Форматирует информацию об активе в портфеле"""
     result = {
         "symbol": symbol,
         "amount": amount,
         "amount_formatted": format_amount_for_asset(symbol, amount),
-        "price": price,
-        "price_formatted": format_price_for_asset(symbol, price) if price else "❌ недоступна",
-        "value": None,
-        "value_formatted": "❌ недоступна"
+        "price_usd": price_usd,
+        "price_usd_formatted": format_price_for_asset(symbol, price_usd, "usd") if price_usd else "❌ недоступна",
+        "price_rub": price_rub,
+        "price_rub_formatted": format_price_for_asset(symbol, price_rub, "rub") if price_rub else "❌ недоступна",
+        "value_usd": None,
+        "value_usd_formatted": "❌ недоступна",
+        "value_rub": None,
+        "value_rub_formatted": "❌ недоступна"
     }
 
-    if price:
-        value = amount * price
-        result["value"] = value
-        result["value_formatted"] = format_currency(value)
+    if price_usd:
+        value_usd = amount * price_usd
+        result["value_usd"] = value_usd
+        result["value_usd_formatted"] = format_currency(value_usd)
+
+        # Рассчитываем стоимость в рублях
+        value_rub = currency_service.usd_to_rub(value_usd)
+        result["value_rub"] = value_rub
+        result["value_rub_formatted"] = currency_service.format_rub(value_rub)
+
+        # Также сохраняем сырое значение для обратной совместимости
+        result["raw_value"] = value_usd
+        result["value"] = value_usd  # Для обратной совместимости
+        result["value_formatted"] = result["value_usd_formatted"]  # Для обратной совместимости
 
     return result
 

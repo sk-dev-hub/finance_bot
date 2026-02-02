@@ -5,7 +5,7 @@
 
 from typing import List, Dict, Any, Optional
 from ..helpers.formatters import format_currency, format_timestamp
-
+from ...services.currency_service import currency_service
 
 def get_welcome_message(username: str) -> str:
     """Сообщение для команды /start"""
@@ -117,12 +117,19 @@ def get_portfolio_message(
     for asset in assets_info:
         message += f"{asset.get('emoji', '•')} **{asset.get('name', asset.get('symbol', ''))}**\n"
         message += f"   Количество: `{asset.get('amount_formatted', '0')}`\n"
-        message += f"   Цена: {asset.get('price_formatted', '❌ недоступна')}\n"
-        message += f"   Стоимость: {asset.get('value_formatted', '❌ недоступна')}\n\n"
+        message += f"   Цена USD: {asset.get('price_usd_formatted', '❌ недоступна')}\n"
+        message += f"   Цена RUB: {asset.get('price_rub_formatted', '❌ недоступна')}\n"
+        message += f"   Стоимость USD: {asset.get('value_usd_formatted', '❌ недоступна')}\n"
+        message += f"   Стоимость RUB: {asset.get('value_rub_formatted', '❌ недоступна')}\n\n"
 
     # Добавляем общую стоимость
     message += "-" * 30 + "\n"
-    message += f"💰 **Общая стоимость:** {format_currency(total_value)}\n\n"
+    message += f"💰 **Общая стоимость:**\n"
+    message += f"• USD: {format_currency(total_value)}\n"
+
+    # Рассчитываем общую стоимость в рублях
+    rub_total = currency_service.usd_to_rub(total_value)
+    message += f"• RUB: {currency_service.format_rub(rub_total)}\n\n"
 
     # Добавляем информацию об обновлении
     if last_updated:
@@ -138,7 +145,7 @@ def get_portfolio_message(
     return message
 
 
-def get_crypto_assets_message(assets: List) -> str:
+def get_crypto_assets_message(assets: List, prices_info: Dict) -> str:  # Добавлен параметр prices_info
     """Сообщение со списком криптовалют"""
     if not assets:
         return "❌ **Нет доступных криптовалют**\n\nПожалуйста, попробуйте позже."
@@ -153,8 +160,17 @@ def get_crypto_assets_message(assets: List) -> str:
     if major_assets:
         message += "**💰 Основные:**\n"
         for asset in major_assets:
+            price_info = prices_info.get(asset.symbol, {})
             message += f"{asset.config.emoji} **{asset.config.name}**\n"
             message += f"   Символ: `{asset.symbol.upper()}`\n"
+
+            # Показываем цены в USD и RUB
+            if price_info.get("price_usd"):
+                price_usd = price_info["price_usd"]
+                price_rub = price_info.get("price_rub", currency_service.usd_to_rub(price_usd))
+
+                message += f"   Цена USD: ${price_usd:,.4f}\n"
+                message += f"   Цена RUB: {currency_service.format_rub(price_rub)}\n"
 
             # Примерное количество
             if asset.symbol == "btc":
@@ -175,7 +191,15 @@ def get_crypto_assets_message(assets: List) -> str:
     if other_assets:
         message += "**🔹 Другие:**\n"
         for asset in other_assets:
-            message += f"{asset.config.emoji} **{asset.config.name}** (`{asset.symbol.upper()}`)\n"
+            price_info = prices_info.get(asset.symbol, {})
+            message += f"{asset.config.emoji} **{asset.config.name}** (`{asset.symbol.upper()}`)"
+
+            if price_info.get("price_usd"):
+                price_usd = price_info["price_usd"]
+                price_rub = price_info.get("price_rub", currency_service.usd_to_rub(price_usd))
+                message += f" — ${price_usd:.4f} | {currency_service.format_rub(price_rub)}"
+
+            message += "\n"
         message += "\n"
 
     message += "-" * 30 + "\n"
