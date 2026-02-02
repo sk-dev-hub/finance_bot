@@ -133,10 +133,9 @@ def get_portfolio_message(
 
     # Добавляем информацию об обновлении
     if last_updated:
-        message += f"🔄 Обновлено: {format_timestamp(last_updated)}\n"
+        message += f"🔄 Обновлено: {last_updated}\n"
 
-    message += "_Цены обновляются каждую минуту_\n"
-    message += "_Источник: CoinGecko API_"
+    message += "_Источники: CoinGecko API, Binance API_"
 
     # Добавляем подсказку для управления
     if assets_count > 0:

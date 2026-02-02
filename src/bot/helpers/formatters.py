@@ -1,11 +1,14 @@
 # src/bot/helpers/formatters.py
 """
 Функции для форматирования данных.
-"""
 
+"""
+import logging
 from typing import Optional, Dict, Any
 from src.services.currency_service import currency_service
+from datetime import datetime, timezone, timedelta
 
+logger = logging.getLogger()
 
 def format_currency(value: float) -> str:
     """Форматирует денежное значение"""
@@ -109,11 +112,30 @@ def format_metal_info(weight_g: float, purity: float) -> str:
     return f"Вес: {weight_g}g ({weight_oz:.2f} oz)\nЧистота: {purity * 100:.2f}%"
 
 
-def format_timestamp(timestamp: str) -> str:
-    """Форматирует временную метку"""
+def format_timestamp(timestamp: str = None) -> str:
+    """Форматирует временную метку в московское время (MSK)"""
     try:
-        from datetime import datetime
-        dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-        return dt.strftime("%H:%M:%S")
-    except:
+        if timestamp:
+            # Если передана временная метка
+            # Просто извлекаем время из ISO строки и показываем как есть с пометкой MSK
+            if 'T' in timestamp:
+                time_part = timestamp.split('T')[1]
+                time_part = time_part.split('.')[0]  # Убираем микросекунды
+                return f"{time_part} MSK"
+            else:
+                return f"{timestamp} MSK"
+        else:
+            # Если метка не передана, возвращаем текущее московское время
+            from datetime import datetime, timezone, timedelta
+
+            # Создаем смещение для MSK (UTC+3)
+            msk_offset = timedelta(hours=3)
+            msk_tz = timezone(msk_offset)
+
+            # Получаем текущее время в MSK
+            current_time = datetime.now(msk_tz)
+            return current_time.strftime("%H:%M:%S MSK")
+
+    except Exception as e:
+        logger.error(f"Error formatting timestamp {timestamp}: {e}")
         return "недавно"

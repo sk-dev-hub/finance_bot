@@ -12,7 +12,7 @@ from ...database.simple_repo import portfolio_repo
 from ...assets.registry import asset_registry
 from ...services.price import price_service
 from ...services.currency_service import currency_service
-from ..helpers.formatters import format_currency, format_portfolio_asset
+from ..helpers.formatters import format_currency, format_portfolio_asset, format_timestamp
 from ..helpers.asset_info import get_supported_assets_detailed, get_supported_assets_text
 from ..helpers.command_utils import (
     get_user_display_name,
@@ -77,14 +77,14 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Рассчитываем общую стоимость в рублях
         total_value_rub = currency_service.usd_to_rub(total_value_usd)
 
-        # Получаем информацию о последнем обновлении
-        last_updated = portfolio.get("updated_at", "")
+        # Получаем текущее московское время для отображения времени обновления
+        current_time = format_timestamp()
 
         message = get_portfolio_message(
             get_user_display_name(update),
             assets_info,
             total_value_usd,
-            last_updated,
+            current_time,  # Передаем текущее время вместо времени из базы
             len(assets)
         )
 

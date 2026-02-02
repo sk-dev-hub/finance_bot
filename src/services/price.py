@@ -3,9 +3,11 @@ import asyncio
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime
+from collections import Counter
 
 from src.assets.registry import asset_registry
 from src.assets.base import AssetPrice
+from src.config.settings import PriceSources
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,46 @@ class PriceService:
         self.cache: Dict[str, AssetPrice] = {}
         self.cache_time: Dict[str, float] = {}
         self.cache_ttl = 60  # секунды
+        self.rate_limit_delay = 1.0  # Задержка между запросами
+        self.last_request_time = 0.0
+        self.request_counter = Counter()  # Счетчик запросов по источникам
+
+    def get_active_price_source(self) -> str:
+        """Определяет активный источник цен на основе статистики запросов"""
+        try:
+            if not self.request_counter:
+                # Если счетчик пуст, проверяем конфигурацию активов
+                crypto_assets = asset_registry.get_crypto_assets()
+                if crypto_assets:
+                    # Проверяем первый актив
+                    asset = crypto_assets[0]
+                    if hasattr(asset, 'config') and hasattr(asset.config, 'price_source'):
+                        if asset.config.price_source == PriceSources.COINGECKO:
+                            return "CoinGecko API"
+                        elif asset.config.price_source == PriceSources.BINANCE:
+                            return "Binance API"
+                return "CoinGecko API, Binance API"
+
+            # Находим самый частый источник
+            most_common = self.request_counter.most_common(1)
+            if most_common:
+                source, count = most_common[0]
+                if source == PriceSources.COINGECKO:
+                    return f"CoinGecko API ({count} запросов)"
+                elif source == PriceSources.BINANCE:
+                    return f"Binance API ({count} запросов)"
+                else:
+                    return f"{source} ({count} запросов)"
+
+            return "не определен"
+
+        except Exception as e:
+            logger.error(f"Error determining price source: {e}")
+            return "CoinGecko API, Binance API"
+
+    def get_price_sources_stats(self) -> Dict[str, int]:
+        """Возвращает статистику по источникам цен"""
+        return dict(self.request_counter)
 
     async def get_price(self, symbol: str) -> Optional[AssetPrice]:
         """Получает цену одного актива"""
@@ -27,21 +69,76 @@ class PriceService:
         if (cache_key in self.cache and
                 cache_key in self.cache_time and
                 current_time - self.cache_time[cache_key] < self.cache_ttl):
-            logger.debug(f"Using cached price for {symbol}")
+            logger.debug(f"Using cached price for {symbol}: {self.cache[cache_key]}")
             return self.cache[cache_key]
+
+        logger.info(f"Fetching fresh price for {symbol}")
 
         # Получаем актив из реестра
         asset = asset_registry.get_asset(symbol)
         if not asset:
-            logger.error(f"Asset not found: {symbol}")
+            logger.error(f"Asset not found in registry: {symbol}")
             return None
 
         # Получаем цену
-        price = await asset.get_price()
+        try:
+            price = await asset.get_price()
+            logger.info(f"Got price for {symbol}: {price}")
+
+            # Увеличиваем счетчик для источника
+            if price and hasattr(price, 'source'):
+                self.request_counter[price.source] += 1
+
+        except Exception as e:
+            logger.error(f"Error getting price for {symbol}: {e}")
+            price = None
+
         if price:
             # Сохраняем в кэш
             self.cache[cache_key] = price
             self.cache_time[cache_key] = current_time
+            logger.debug(f"Cached price for {symbol}: {price.price}")
+
+        return price
+
+    async def get_price(self, symbol: str) -> Optional[AssetPrice]:
+        """Получает цену одного актива"""
+        # Проверяем кэш
+        cache_key = f"price_{symbol}"
+        current_time = asyncio.get_event_loop().time()
+
+        if (cache_key in self.cache and
+                cache_key in self.cache_time and
+                current_time - self.cache_time[cache_key] < self.cache_ttl):
+            logger.debug(f"Using cached price for {symbol}: {self.cache[cache_key]}")
+            return self.cache[cache_key]
+
+        logger.info(f"Fetching fresh price for {symbol}")
+
+        # Получаем актив из реестра
+        asset = asset_registry.get_asset(symbol)
+        if not asset:
+            logger.error(f"Asset not found in registry: {symbol}")
+            return None
+
+        # Получаем цену
+        try:
+            price = await asset.get_price()
+            logger.info(f"Got price for {symbol}: {price}")
+
+            # Увеличиваем счетчик для источника
+            if price and hasattr(price, 'source'):
+                self.request_counter[price.source] += 1
+
+        except Exception as e:
+            logger.error(f"Error getting price for {symbol}: {e}")
+            price = None
+
+        if price:
+            # Сохраняем в кэш
+            self.cache[cache_key] = price
+            self.cache_time[cache_key] = current_time
+            logger.debug(f"Cached price for {symbol}: {price.price}")
 
         return price
 
@@ -50,18 +147,53 @@ class PriceService:
         # Уникальные символы
         unique_symbols = list(set(symbols))
 
-        # Запрашиваем цены параллельно
-        tasks = [self.get_price(symbol) for symbol in unique_symbols]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Сначала проверяем кэш для всех символов
+        cached_results = {}
+        remaining_symbols = []
 
-        # Обрабатываем результаты
-        prices = {}
-        for symbol, result in zip(unique_symbols, results):
-            if isinstance(result, Exception):
-                logger.error(f"Error getting price for {symbol}: {result}")
-                prices[symbol] = None
+        for symbol in unique_symbols:
+            cache_key = f"price_{symbol}"
+            current_time = asyncio.get_event_loop().time()
+
+            if (cache_key in self.cache and
+                    cache_key in self.cache_time and
+                    current_time - self.cache_time[cache_key] < self.cache_ttl):
+                cached_results[symbol] = self.cache[cache_key]
             else:
-                prices[symbol] = result
+                remaining_symbols.append(symbol)
+
+        # Если все есть в кэше, возвращаем
+        if not remaining_symbols:
+            return cached_results
+
+        # Для оставшихся символов получаем цены с задержкой
+        prices = cached_results.copy()
+
+        for symbol in remaining_symbols:
+            # Задержка между запросами
+            current_time = asyncio.get_event_loop().time()
+            time_since_last_request = current_time - self.last_request_time
+            if time_since_last_request < self.rate_limit_delay:
+                await asyncio.sleep(self.rate_limit_delay - time_since_last_request)
+
+            asset = asset_registry.get_asset(symbol)
+            if asset:
+                price = await asset.get_price()
+                self.last_request_time = asyncio.get_event_loop().time()
+
+                if price:
+                    # Увеличиваем счетчик для источника
+                    if hasattr(price, 'source'):
+                        self.request_counter[price.source] += 1
+
+                    cache_key = f"price_{symbol}"
+                    self.cache[cache_key] = price
+                    self.cache_time[cache_key] = current_time
+                    prices[symbol] = price
+                else:
+                    prices[symbol] = None
+            else:
+                prices[symbol] = None
 
         return prices
 

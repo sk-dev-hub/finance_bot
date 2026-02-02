@@ -3,11 +3,13 @@
 Функции для получения информации об активах.
 """
 
+import logging
 from typing import List, Dict, Any
 from src.assets.registry import asset_registry
 from src.services.price import price_service
 from src.services.currency_service import currency_service
 
+logger = logging.getLogger(__name__)
 
 def get_crypto_assets() -> List[Any]:
     """Получает список криптоактивов"""
@@ -91,12 +93,15 @@ async def get_asset_details_with_prices(symbols: List[str]) -> Dict[str, Dict[st
     prices_result = await price_service.get_prices(symbols)
     assets_info = {}
 
+
     for symbol in symbols:
         asset = asset_registry.get_asset(symbol)
         price_data = prices_result.get(symbol)
 
+
         if asset:
             price_usd = price_data.price if price_data else None
+            source = price_data.source if price_data else None
 
             # Рассчитываем стоимость в рублях
             price_rub = None
@@ -108,7 +113,8 @@ async def get_asset_details_with_prices(symbols: List[str]) -> Dict[str, Dict[st
                 "name": asset.config.name,
                 "symbol": asset.symbol,
                 "price_usd": price_usd,
-                "price_rub": price_rub,  # Добавлено поле с ценой в рублях
+                "price_rub": price_rub,
+                "source": source,  # Добавляем источник цены
                 "change_24h": getattr(price_data, 'change_24h', None) if price_data else None
             }
 

@@ -26,7 +26,13 @@ class Settings:
 
     # Источники данных
     COINGECKO_API_URL: str = "https://api.coingecko.com/api/v3"
+
     BINANCE_API_URL: str = "https://api.binance.com/api/v3"
+    BINANCE_API_KEY: str = os.getenv("BINANCE_API_KEY", "")
+    BINANCE_API_SECRET: str = os.getenv("BINANCE_API_SECRET", "")
+
+    COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY", "")
+    COINGECKO_RATE_LIMIT = 30  # запросов в минуту
 
     # Кэширование
     CACHE_TTL: int = 60
