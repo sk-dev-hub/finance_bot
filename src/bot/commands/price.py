@@ -208,6 +208,5 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message += f"• Курс USD/RUB: {currency_service.format_rub(currency_service.usd_to_rub(1))}\n"
     message += f"• Московское время: {formatted_time}\n\n"
 
-    message += "💡 _Статистика обновляется в реальном времени_"
 
     await update.message.reply_text(message, parse_mode=None)
