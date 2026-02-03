@@ -23,6 +23,10 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     record_user_activity(user.id, "prices")
 
+    # Инициализируем CurrencyService если еще не инициализирован
+    if not hasattr(currency_service, '_initialized') or not currency_service._initialized:
+        await currency_service.initialize()
+
     crypto_assets = asset_registry.get_crypto_assets()
     symbols = [asset.symbol for asset in crypto_assets]
 
@@ -65,6 +69,9 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         key=lambda x: (preferred_order.index(x) if x in preferred_order else 999, x)
     )
 
+    # Получаем текущий курс USD/RUB один раз (асинхронно)
+    current_usd_rub_rate = await currency_service.get_real_usd_rub_rate()
+
     # Формируем сообщение
     message = "📈 **Текущие цены криптовалют**\n\n"
 
@@ -91,7 +98,9 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Цена в рублях
             if price_rub is None:
-                price_rub = currency_service.usd_to_rub(price_usd)
+                # Асинхронная конвертация
+                price_rub = await currency_service.usd_to_rub(price_usd)
+
             price_rub_formatted = currency_service.format_rub(price_rub)
 
             message += f"   USD: {price_usd_formatted} | RUB: {price_rub_formatted}\n"
@@ -126,7 +135,10 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Время обновления и источники
     message += f"🔄 Обновлено: {formatted_time}\n"
     message += f"{source_line}\n"
-    message += f"_Курс RUB: 1 USD = {currency_service.format_rub(currency_service.usd_to_rub(1))}_"
+
+    # Асинхронный вывод курса
+    one_usd_in_rub = current_usd_rub_rate  # уже есть курс
+    message += f"_Курс RUB: 1 USD = {currency_service.format_rub(one_usd_in_rub)}_"
 
     await update.message.reply_text(message, parse_mode=None)
 
@@ -168,6 +180,14 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Получаем текущее московское время
     formatted_time = format_timestamp()
 
+    # Инициализируем CurrencyService если нужно
+    if not hasattr(currency_service, '_initialized') or not currency_service._initialized:
+        await currency_service.initialize()
+
+    # Получаем курс USD/RUB асинхронно
+    usd_rub_rate = await currency_service.get_real_usd_rub_rate()
+    usd_rub_formatted = currency_service.format_rub(usd_rub_rate)
+
     # Формируем сообщение
     message = "📊 **Статистика бота**\n\n"
 
@@ -178,6 +198,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     metals_count = len(asset_registry.get_precious_metal_assets())
     commodities_count = len(asset_registry.get_commodity_assets())
     receivables_count = len(asset_registry.get_receivable_assets())
+    etf_count = len(asset_registry.get_etf_assets())
 
     message += "💎 **Активы:**\n"
     message += f"• Всего активов: {len(all_assets)}\n"
@@ -185,12 +206,39 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message += f"• Фиатные валюты: {fiat_count}\n"
     message += f"• Драгоценные металлы: {metals_count}\n"
     message += f"• Товары: {commodities_count}\n"
-    message += f"• Дебиторка: {receivables_count}\n\n"
+    message += f"• Дебиторка: {receivables_count}\n"
+    message += f"• ETF: {etf_count}\n\n"
 
     # Популярные активы
     message += "🌟 **Популярные активы:**\n"
-    popular_assets = ["BTC", "ETH", "TON", "USDT", "SOL"]
-    message += f"• {', '.join(popular_assets)}\n\n"
+
+    # Получаем информацию о популярных активах
+    popular_symbols = ["btc", "eth", "ton", "usdt", "sol"]
+    try:
+        from ..helpers.asset_info import get_asset_details_with_prices
+        popular_info = await get_asset_details_with_prices(popular_symbols)
+
+        for symbol in popular_symbols:
+            info = popular_info.get(symbol, {})
+            name = info.get("name", symbol.upper())
+            emoji = info.get("emoji", "•")
+            price_usd = info.get("price_usd")
+
+            if price_usd is not None:
+                # Асинхронная конвертация
+                price_rub = await currency_service.usd_to_rub(price_usd)
+                rub_formatted = currency_service.format_rub(price_rub)
+                message += f"• {emoji} {name}: ${price_usd:,.4f} | {rub_formatted}\n"
+            else:
+                message += f"• {emoji} {name}: ❌ недоступно\n"
+    except Exception as e:
+        # Fallback если не удалось получить цены
+        for symbol in popular_symbols:
+            asset = asset_registry.get_asset(symbol)
+            if asset:
+                message += f"• {asset.config.emoji} {asset.config.name}\n"
+
+    message += "\n"
 
     message += "🔄 **Система:**\n"
     message += f"• Статус: ✅ Работает\n"
@@ -205,8 +253,27 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         message += f"• Статистика: данные еще собираются\n"
 
-    message += f"• Курс USD/RUB: {currency_service.format_rub(currency_service.usd_to_rub(1))}\n"
+    # Показываем оба курса USD/RUB (ЦБ и реальный)
+    cbr_rate = currency_service.get_cbr_usd_rub_rate_sync()
+    real_rate = currency_service.get_real_usd_rub_rate_sync()
+
+    message += f"• Курс USD/RUB (ЦБ): {currency_service.format_rub(cbr_rate)}\n"
+    message += f"• Курс USD/RUB (реальный): {currency_service.format_rub(real_rate)}\n"
+
+    # Информация о CurrencyService
+    if currency_service.last_update:
+        last_update_str = currency_service.last_update.strftime("%d.%m.%Y %H:%M")
+        message += f"• Курсы обновлены: {last_update_str}\n"
+
     message += f"• Московское время: {formatted_time}\n\n"
 
+    message += "📈 **Команды:**\n"
+    message += "• `/coins` — список криптовалют\n"
+    message += "• `/currencies` — список валют\n"
+    message += "• `/metals` — драгоценные металлы\n"
+    message += "• `/prices` — текущие цены\n"
+    message += "• `/portfolio` — ваш портфель\n\n"
+
+    message += "💡 _Статистика обновляется в реальном времени_"
 
     await update.message.reply_text(message, parse_mode=None)

@@ -136,7 +136,7 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         asset_type=AssetType.FIAT,
         emoji="₽",
         display_precision=2,
-        price_source="static",
+        price_source="cbr",
         base_currency="USD",
         exchange_rate=0.011,  # Примерный курс: 1 RUB = 0.011 USD
         aliases=["ruble", "rouble", "российский рубль"],
@@ -151,7 +151,7 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         asset_type=AssetType.FIAT,
         emoji="💵",
         display_precision=2,
-        price_source="static",
+        price_source="cbr",
         base_currency="USD",
         exchange_rate=1.0,
         aliases=["dollar", "us dollar", "доллар"],
@@ -166,7 +166,7 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         asset_type=AssetType.FIAT,
         emoji="¥",
         display_precision=2,
-        price_source="static",
+        price_source="cbr",
         base_currency="USD",
         exchange_rate=0.14,  # Примерный курс: 1 CNY = 0.14 USD
         aliases=["yuan", "китайский юань"],
@@ -181,7 +181,7 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         asset_type=AssetType.FIAT,
         emoji="💶",
         display_precision=2,
-        price_source="static",
+        price_source="cbr",
         base_currency="USD",
         exchange_rate=1.08,  # Примерный курс: 1 EUR = 1.08 USD
         aliases=["euro", "евро"],
@@ -196,7 +196,7 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         asset_type=AssetType.FIAT,
         emoji="₸",
         display_precision=2,
-        price_source="static",
+        price_source="cbr",
         base_currency="USD",
         exchange_rate=0.0021,  # Примерный курс: 1 KZT = 0.0021 USD
         aliases=["tenge", "казахстанский тенге"],
@@ -211,7 +211,7 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         asset_type=AssetType.FIAT,
         emoji="₴",
         display_precision=2,
-        price_source="static",
+        price_source="cbr",
         base_currency="USD",
         exchange_rate=0.026,  # Примерный курс: 1 UAH = 0.026 USD
         aliases=["hryvnia", "гривна", "украинская гривна"],

@@ -60,46 +60,6 @@ class PriceService:
         """Возвращает статистику по источникам цен"""
         return dict(self.request_counter)
 
-    async def get_price(self, symbol: str) -> Optional[AssetPrice]:
-        """Получает цену одного актива"""
-        # Проверяем кэш
-        cache_key = f"price_{symbol}"
-        current_time = asyncio.get_event_loop().time()
-
-        if (cache_key in self.cache and
-                cache_key in self.cache_time and
-                current_time - self.cache_time[cache_key] < self.cache_ttl):
-            logger.debug(f"Using cached price for {symbol}: {self.cache[cache_key]}")
-            return self.cache[cache_key]
-
-        logger.info(f"Fetching fresh price for {symbol}")
-
-        # Получаем актив из реестра
-        asset = asset_registry.get_asset(symbol)
-        if not asset:
-            logger.error(f"Asset not found in registry: {symbol}")
-            return None
-
-        # Получаем цену
-        try:
-            price = await asset.get_price()
-            logger.info(f"Got price for {symbol}: {price}")
-
-            # Увеличиваем счетчик для источника
-            if price and hasattr(price, 'source'):
-                self.request_counter[price.source] += 1
-
-        except Exception as e:
-            logger.error(f"Error getting price for {symbol}: {e}")
-            price = None
-
-        if price:
-            # Сохраняем в кэш
-            self.cache[cache_key] = price
-            self.cache_time[cache_key] = current_time
-            logger.debug(f"Cached price for {symbol}: {price.price}")
-
-        return price
 
     async def get_price(self, symbol: str) -> Optional[AssetPrice]:
         """Получает цену одного актива"""
@@ -110,35 +70,26 @@ class PriceService:
         if (cache_key in self.cache and
                 cache_key in self.cache_time and
                 current_time - self.cache_time[cache_key] < self.cache_ttl):
-            logger.debug(f"Using cached price for {symbol}: {self.cache[cache_key]}")
+            logger.debug(f"Using cached price for {symbol}")
             return self.cache[cache_key]
-
-        logger.info(f"Fetching fresh price for {symbol}")
 
         # Получаем актив из реестра
         asset = asset_registry.get_asset(symbol)
         if not asset:
-            logger.error(f"Asset not found in registry: {symbol}")
+            logger.error(f"Asset not found: {symbol}")
             return None
 
         # Получаем цену
-        try:
-            price = await asset.get_price()
-            logger.info(f"Got price for {symbol}: {price}")
-
-            # Увеличиваем счетчик для источника
-            if price and hasattr(price, 'source'):
-                self.request_counter[price.source] += 1
-
-        except Exception as e:
-            logger.error(f"Error getting price for {symbol}: {e}")
-            price = None
-
+        price = await asset.get_price()
         if price:
             # Сохраняем в кэш
             self.cache[cache_key] = price
             self.cache_time[cache_key] = current_time
-            logger.debug(f"Cached price for {symbol}: {price.price}")
+
+            # Увеличиваем счетчик для источника
+            if hasattr(price, 'source'):
+                source_str = str(price.source)
+                self.request_counter[source_str] += 1
 
         return price
 
@@ -184,7 +135,8 @@ class PriceService:
                 if price:
                     # Увеличиваем счетчик для источника
                     if hasattr(price, 'source'):
-                        self.request_counter[price.source] += 1
+                        source_str = str(price.source)
+                        self.request_counter[source_str] += 1
 
                     cache_key = f"price_{symbol}"
                     self.cache[cache_key] = price

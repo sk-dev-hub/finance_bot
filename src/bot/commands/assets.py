@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 
 from ...assets.registry import asset_registry
 from ...services.price import price_service
+from ... services.currency_service import currency_service
 from ..helpers.asset_info import (
     get_crypto_assets,
     get_fiat_assets,
@@ -35,25 +36,37 @@ async def coins_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     record_user_activity(user.id, "coins")
 
-    crypto_assets = get_crypto_assets()
-    message = get_crypto_assets_message(crypto_assets)
+    crypto_assets = asset_registry.get_crypto_assets()
+
+    # Получаем цены для крипто активов
+    symbols = [asset.symbol for asset in crypto_assets]
+    from ..helpers.asset_info import get_asset_details_with_prices
+    prices_info = await get_asset_details_with_prices(symbols)
+
+    # Используем обновленную функцию с prices_info
+    message = get_crypto_assets_message(crypto_assets, prices_info)
 
     await update.message.reply_text(message, parse_mode=None)
 
 
 async def currencies_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик команды /currencies - показывает список фиатных валют"""
+    """Обработчик команды /currencies - список валют"""
     user = update.effective_user
     record_user_activity(user.id, "currencies")
 
-    fiat_assets = get_fiat_assets()
+    # ПРИНУДИТЕЛЬНО обновляем курсы перед показом
+    await currency_service.update_rates_from_cbr()
+
+    fiat_assets = asset_registry.get_fiat_assets()
+
+    # Получаем цены для фиатных валют
     symbols = [asset.symbol for asset in fiat_assets]
+    from ..helpers.asset_info import get_asset_details_with_prices
     prices_info = await get_asset_details_with_prices(symbols)
 
     message = get_fiat_assets_message(fiat_assets, prices_info)
 
     await update.message.reply_text(message, parse_mode=None)
-
 
 async def metals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /metals - показывает драгоценные металлы"""

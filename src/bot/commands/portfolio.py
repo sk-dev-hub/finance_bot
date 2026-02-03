@@ -63,7 +63,8 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Если price_rub нет в деталях, но есть price_usd, рассчитываем
             if price_usd and not price_rub:
-                price_rub = currency_service.usd_to_rub(price_usd)
+                # ВАЖНО: используем await или синхронный метод
+                price_rub = await currency_service.usd_to_rub(price_usd)  # С await
 
             # Используем обновленную функцию format_portfolio_asset с поддержкой RUB
             asset_info = format_portfolio_asset(symbol, amount, price_usd, price_rub)
@@ -75,7 +76,8 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             assets_info.append(asset_info)
 
         # Рассчитываем общую стоимость в рублях
-        total_value_rub = currency_service.usd_to_rub(total_value_usd)
+        # ВАЖНО: используем await
+        total_value_rub = await currency_service.usd_to_rub(total_value_usd)  # С await
 
         # Получаем текущее московское время для отображения времени обновления
         current_time = format_timestamp()
@@ -85,7 +87,8 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             assets_info,
             total_value_usd,
             current_time,  # Передаем текущее время вместо времени из базы
-            len(assets)
+            len(assets),
+            total_value_rub  # Передаем уже рассчитанное значение
         )
 
     await update.message.reply_text(message, parse_mode=None)

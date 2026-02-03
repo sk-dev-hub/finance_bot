@@ -77,7 +77,7 @@ class CryptoAsset(BaseAsset):
                             return AssetPrice(
                                 symbol=self.symbol,
                                 price=price,
-                                source=PriceSources.COINGECKO,
+                                source="coingecko",
                                 timestamp=datetime.now()
                             )
                     else:
@@ -105,7 +105,7 @@ class CryptoAsset(BaseAsset):
                 return AssetPrice(
                     symbol=self.symbol,
                     price=1.0,  # USDT обычно равен 1 USD
-                    source=PriceSources.BINANCE,
+                    source="binance",
                     timestamp=datetime.now()
                 )
 
@@ -165,7 +165,7 @@ class CryptoAsset(BaseAsset):
                 return AssetPrice(
                     symbol=self.symbol,
                     price=1.0,
-                    source=PriceSources.BINANCE,
+                    source="binance",
                     timestamp=datetime.now()
                 )
 
@@ -194,7 +194,7 @@ class CryptoAsset(BaseAsset):
                         return AssetPrice(
                             symbol=self.symbol,
                             price=price,
-                            source=PriceSources.BINANCE,
+                            source="binance",
                             timestamp=datetime.now()
                         )
 

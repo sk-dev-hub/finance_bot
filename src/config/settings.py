@@ -3,18 +3,19 @@ import os
 from dataclasses import dataclass
 from typing import Dict, Any
 from dotenv import load_dotenv
+from enum import Enum
 
 # Загружаем переменные окружения
 load_dotenv()
 
 
 @dataclass
-class PriceSources:
-    """Источники данных для цен"""
+class PriceSources(str, Enum):
     COINGECKO = "coingecko"
     BINANCE = "binance"
-    YAHOO_FINANCE = "yahoo_finance"
-    ALPHA_VANTAGE = "alpha_vantage"
+    CBR = "cbr"  # Добавляем ЦБ РФ
+    MANUAL = "manual"
+    STATIC = "static"
 
 
 @dataclass
@@ -50,7 +51,7 @@ class Settings:
     UPDATE_INTERVAL: int = 600  # секунды
 
     # Курс ЦБ  + 1 рубль
-    RUB_EXCHANGE_RATE: float = 80.0  # Курс ЦБ + 1 рубль
+    RUB_EXCHANGE_RATE: float = 180.0  # Курс ЦБ + 1 рубль
 
     @classmethod
     def load(cls) -> 'Settings':

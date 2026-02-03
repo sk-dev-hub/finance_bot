@@ -86,7 +86,7 @@ def format_portfolio_asset(
         result["value_usd_formatted"] = format_currency(value_usd)
 
         # Рассчитываем стоимость в рублях
-        value_rub = currency_service.usd_to_rub(value_usd)
+        value_rub = currency_service.usd_to_rub_real_sync(value_usd)
         result["value_rub"] = value_rub
         result["value_rub_formatted"] = currency_service.format_rub(value_rub)
 

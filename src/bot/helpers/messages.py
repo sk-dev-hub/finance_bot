@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from ..helpers.formatters import format_currency, format_timestamp
 from ...services.currency_service import currency_service
 
+
 def get_welcome_message(username: str) -> str:
     """Сообщение для команды /start"""
     return f"""
@@ -25,6 +26,7 @@ def get_welcome_message(username: str) -> str:
 /products — Товары
 /receivables — Дебиторская задолженность
 /etfs — список всех ETF
+/stats — Статистика бота
 /settings — Настройки
 /help — Помощь и инструкции
 
@@ -44,17 +46,18 @@ def get_help_message(username: str) -> str:
 📚 **Помощь по использованию бота**
 
 **Основные команды:**
-/start — Начать работу
-/portfolio — Показать текущий портфель
-/add — Добавить актив в портфель
-/remove — Удалить актив из портфеля
-/prices — Текущие цены криптовалют
-/coins — Список всех криптовалют
+/portfolio — Посмотреть мой портфель
+/add — Добавить актив
+/remove — Удалить актив
+/prices — Текущие цены крипто
+/coins — Список криптовалют
 /currencies — Список валют
+/metals — Драгоценные металлы
+/products — Товары
 /receivables — Дебиторская задолженность
 /etfs — список всех ETF
-/settings — Настройки бота
-/help — Эта справка
+/stats — Статистика бота
+/settings — Настройки
 
 **Как добавить актив:**
 `/add btc 0.5` — добавить 0.5 BTC
@@ -108,7 +111,8 @@ def get_portfolio_message(
         assets_info: List[Dict],
         total_value: float,
         last_updated: str,
-        assets_count: int
+        assets_count: int,
+        total_value_rub: float = None  # Добавили параметр
 ) -> str:
     """Сообщение для портфеля с активами"""
     message = f"📊 **Портфель {username}**\n\n"
@@ -127,8 +131,13 @@ def get_portfolio_message(
     message += f"💰 **Общая стоимость:**\n"
     message += f"• USD: {format_currency(total_value)}\n"
 
-    # Рассчитываем общую стоимость в рублях
-    rub_total = currency_service.usd_to_rub(total_value)
+    # Используем переданное значение или рассчитываем синхронно
+    if total_value_rub is not None:
+        rub_total = total_value_rub
+    else:
+        # Синхронный расчет если значение не передано
+        rub_total = currency_service.usd_to_rub_real_sync(total_value)
+
     message += f"• RUB: {currency_service.format_rub(rub_total)}\n\n"
 
     # Добавляем информацию об обновлении
@@ -222,13 +231,39 @@ def get_fiat_assets_message(assets: List, prices_info: Dict) -> str:
         message += f"{asset.config.emoji} **{asset.config.name}**\n"
         message += f"   Символ: `{asset.symbol.upper()}`\n"
 
-        if price_info.get("price"):
-            price = price_info["price"]
-            if asset.symbol == "usd":
+        # Получаем цену в USD
+        price_usd = price_info.get("price_usd")
+
+        if price_usd:
+            if asset.symbol.lower() == "usd":
+                # Для USD показываем оба курса
+                cbr_rate = currency_service.get_cbr_usd_rub_rate_sync()
+                real_rate = currency_service.get_real_usd_rub_rate_sync()
                 message += "   Курс: 1 USD = 1.0000 USD\n"
+                message += f"         = {cbr_rate:.2f} ₽ (ЦБ РФ)\n"
+                message += f"         = {real_rate:.2f} ₽ (реальный +2 ₽)\n"
             else:
-                message += f"   Курс: 1 USD = {1 / price:.4f} {asset.symbol.upper()}\n"
-                message += f"   (1 {asset.symbol.upper()} = ${price:.4f})\n"
+                # Для других валют - просто курс к USD
+                message += f"   Курс: 1 {asset.symbol.upper()} = ${price_usd:.4f}\n"
+
+                # Конвертируем в RUB через реальный курс USD
+                price_rub = currency_service.usd_to_rub_real_sync(price_usd)
+                message += f"         = {currency_service.format_rub(price_rub)}\n"
+
+                # Также показываем прямой курс к RUB от ЦБ
+                if hasattr(currency_service, 'get_currency_to_rub_rate_sync'):
+                    direct_rate = currency_service.get_currency_to_rub_rate_sync(asset.symbol.lower())
+                else:
+                    # Альтернатива через конвертацию
+                    price_usd = price_info.get("price_usd")
+                    if price_usd:
+                        # Конвертируем через реальный курс USD
+                        direct_rate = price_usd * currency_service.get_real_usd_rub_rate_sync()
+                    else:
+                        direct_rate = None
+
+                if direct_rate:
+                    message += f"         = {currency_service.format_rub(direct_rate)} (прямой курс ЦБ)\n"
         else:
             message += "   Курс: ❌ временно недоступен\n"
 
@@ -242,16 +277,19 @@ def get_fiat_assets_message(assets: List, prices_info: Dict) -> str:
         else:
             message += f"   Пример: `/add {asset.symbol} 100`\n\n"
 
+    # Добавляем информацию о курсах
     message += "-" * 30 + "\n"
+    message += currency_service.get_rate_info() + "\n\n"
+
     message += "📝 **Как использовать:**\n"
     message += "1. `/add rub 10000` — добавить 10,000 рублей\n"
     message += "2. `/add eur 500` — добавить 500 евро\n"
     message += "3. `/portfolio` — посмотреть общую стоимость в USD\n\n"
 
     message += "💡 **Примечание:**\n"
-    message += "• Все валюты конвертируются в USD по текущему курсу\n"
-    message += "• Цены обновляются каждую минуту\n"
-    message += "• Источник: CoinGecko API"
+    message += "• К курсу USD добавляется +2 рубля\n"
+    message += "• Курсы других валют - прямые курсы ЦБ РФ\n"
+    message += "• Для конвертации в USD используется реальный курс USD/RUB\n"
 
     return message
 

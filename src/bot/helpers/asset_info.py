@@ -90,23 +90,44 @@ def get_supported_assets_detailed() -> str:
 
 async def get_asset_details_with_prices(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
     """Получает детальную информацию об активах с ценами"""
+    import logging
+    logger = logging.getLogger(__name__)
+
     prices_result = await price_service.get_prices(symbols)
     assets_info = {}
 
+    logger.debug(f"Symbols: {symbols}")
+    logger.debug(f"Prices result: {prices_result}")
 
     for symbol in symbols:
         asset = asset_registry.get_asset(symbol)
         price_data = prices_result.get(symbol)
 
+        logger.debug(f"Processing {symbol}: asset={asset}, price_data={price_data}")
+
+        if not asset:
+            logger.warning(f"Asset {symbol} not found in registry")
+            continue
 
         if asset:
             price_usd = price_data.price if price_data else None
-            source = price_data.source if price_data else None
+            source = str(price_data.source) if price_data else None
+
+            logger.debug(f"Price USD for {symbol}: {price_usd}")
 
             # Рассчитываем стоимость в рублях
             price_rub = None
             if price_usd is not None:
-                price_rub = currency_service.usd_to_rub(price_usd)
+                try:
+                    # Для USD используем реальный курс, для других валют - конвертацию через USD
+                    if symbol.lower() == "usd":
+                        price_rub = currency_service.usd_to_rub_real_sync(price_usd)
+                    else:
+                        # Для других валют: цена в USD * реальный курс USD/RUB
+                        price_rub = currency_service.usd_to_rub_real_sync(price_usd)
+                except Exception as e:
+                    logger.error(f"Ошибка конвертации для {symbol}: {e}")
+                    price_rub = price_usd * 93.0  # Fallback
 
             info = {
                 "emoji": asset.config.emoji,
@@ -114,7 +135,7 @@ async def get_asset_details_with_prices(symbols: List[str]) -> Dict[str, Dict[st
                 "symbol": asset.symbol,
                 "price_usd": price_usd,
                 "price_rub": price_rub,
-                "source": source,  # Добавляем источник цены
+                "source": source,
                 "change_24h": getattr(price_data, 'change_24h', None) if price_data else None
             }
 
