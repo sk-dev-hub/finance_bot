@@ -91,6 +91,8 @@ def get_supported_assets_detailed() -> str:
 async def get_asset_details_with_prices(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
     """Получает детальную информацию об активах с ценами"""
     import logging
+    from src.config.settings import settings  # Импортируем settings
+
     logger = logging.getLogger(__name__)
 
     prices_result = await price_service.get_prices(symbols)
@@ -115,15 +117,24 @@ async def get_asset_details_with_prices(symbols: List[str]) -> Dict[str, Dict[st
 
             logger.debug(f"Price USD for {symbol}: {price_usd}")
 
-            # Рассчитываем стоимость в рублях
+            # Для товаров получаем цену в рублях из настроек
             price_rub = None
-            if price_usd is not None:
+            if asset.asset_type.value == "commodity":
+                # Цены товаров из settings
+                price_rub = settings.PRODUCTS_PRICES.get(symbol)
+
+                # Конвертируем в USD если есть цена в рублях
+                if price_rub and not price_usd:
+                    usd_to_rub_rate = currency_service.get_real_usd_rub_rate_sync()
+                    if usd_to_rub_rate > 0:
+                        price_usd = price_rub / usd_to_rub_rate
+
+            elif price_usd is not None:
+                # Для других активов конвертируем USD -> RUB
                 try:
-                    # Для USD используем реальный курс, для других валют - конвертацию через USD
                     if symbol.lower() == "usd":
                         price_rub = currency_service.usd_to_rub_real_sync(price_usd)
                     else:
-                        # Для других валют: цена в USD * реальный курс USD/RUB
                         price_rub = currency_service.usd_to_rub_real_sync(price_usd)
                 except Exception as e:
                     logger.error(f"Ошибка конвертации для {symbol}: {e}")

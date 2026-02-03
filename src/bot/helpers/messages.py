@@ -359,23 +359,16 @@ def get_metals_assets_message(assets: List, prices_info: Dict) -> str:
 
 def get_products_assets_message(assets: List, prices_info: Dict = None) -> str:
     """Сообщение со списком товаров"""
+    from src.config.settings import settings  # Импортируем settings
+
     if not assets:
         return "❌ Нет доступных товаров\nТовары еще не добавлены."
 
     message = "📦 Товары\n\n"
 
-    # Статические цены в рублях из commodity.py
-    static_prices_rub = {
-        "product_1": 1250.0,  # Приборы класик 24
-        "product_2": 1150.0,  # Приборы класик 16
-        "product_3": 1365.0,  # Приборы класик 24 зол
-        "product_4": 1250.0,  # Приборы Флора 24
-        "product_5": 100000.0,  # Анализатор
-        "product_6": 120000.0,  # Гитара 1007 SN
-    }
-
     for asset in assets:
-        price_rub = static_prices_rub.get(asset.symbol)
+        # Получаем цену в рублях из настроек
+        price_rub = settings.PRODUCTS_PRICES.get(asset.symbol)
 
         message += f"{asset.config.emoji} {asset.config.name}\n"
         message += f"  Код: {asset.symbol}\n"
@@ -384,11 +377,8 @@ def get_products_assets_message(assets: List, prices_info: Dict = None) -> str:
             # Показываем цену в рублях (исходная валюта)
             message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
 
-            # Конвертируем в USD используя CurrencyService
-            # Вариант 1: через прямой курс
+            # Конвертируем в USD
             price_usd = currency_service.convert_to_usd_sync(price_rub, "rub")
-
-            # Вариант 2: если метод не работает, через реальный курс
             if price_usd is None:
                 usd_to_rub_rate = currency_service.get_real_usd_rub_rate_sync()
                 price_usd = price_rub / usd_to_rub_rate if usd_to_rub_rate > 0 else 0
@@ -409,7 +399,7 @@ def get_products_assets_message(assets: List, prices_info: Dict = None) -> str:
     message += "/portfolio — общая стоимость\n\n"
 
     message += "📊 Особенности:\n"
-    message += "• Цены в рублях\n"
+    message += "• Цены в рублях (из настроек)\n"
     message += "• Количество в натуральных единицах\n"
     message += "• Автоматическая конвертация в USD/RUB\n"
     message += "• Для обновления цен: /update_product_price\n"

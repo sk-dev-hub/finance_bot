@@ -63,7 +63,7 @@ def format_portfolio_asset(
         symbol: str,
         amount: float,
         price_usd: Optional[float] = None,
-        price_rub: Optional[float] = None  # Добавлен параметр
+        price_rub: Optional[float] = None
 ) -> Dict[str, Any]:
     """Форматирует информацию об активе в портфеле"""
     result = {
@@ -80,6 +80,7 @@ def format_portfolio_asset(
         "value_rub_formatted": "❌ недоступна"
     }
 
+    # Если есть цена в USD (большинство активов)
     if price_usd:
         value_usd = amount * price_usd
         result["value_usd"] = value_usd
@@ -92,8 +93,30 @@ def format_portfolio_asset(
 
         # Также сохраняем сырое значение для обратной совместимости
         result["raw_value"] = value_usd
-        result["value"] = value_usd  # Для обратной совместимости
-        result["value_formatted"] = result["value_usd_formatted"]  # Для обратной совместимости
+        result["value"] = value_usd
+        result["value_formatted"] = result["value_usd_formatted"]
+
+    # Если есть только цена в RUB (товары, фиатные валюты RUB)
+    elif price_rub:
+        value_rub = amount * price_rub
+        result["value_rub"] = value_rub
+        result["value_rub_formatted"] = currency_service.format_rub(value_rub)
+
+        # Конвертируем в USD
+        usd_to_rub_rate = currency_service.get_real_usd_rub_rate_sync()
+        if usd_to_rub_rate > 0:
+            value_usd = value_rub / usd_to_rub_rate
+            result["value_usd"] = value_usd
+            result["value_usd_formatted"] = format_currency(value_usd)
+
+            # Для обратной совместимости
+            result["raw_value"] = value_usd
+            result["value"] = value_usd
+            result["value_formatted"] = result["value_usd_formatted"]
+        else:
+            # Не можем конвертировать
+            result["value"] = value_rub
+            result["value_formatted"] = result["value_rub_formatted"]
 
     return result
 

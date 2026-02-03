@@ -1,7 +1,5 @@
 # src/assets/commodity.py
-"""
-Класс для товаров (коммодити).
-"""
+"""Класс для товаров (коммодити)."""
 
 import logging
 from typing import Optional
@@ -9,6 +7,7 @@ from datetime import datetime
 
 from .base import BaseAsset, AssetPrice
 from src.config.assets import AssetConfig
+from src.config.settings import settings  # Импортируем settings
 
 logger = logging.getLogger(__name__)
 
@@ -19,28 +18,26 @@ class CommodityAsset(BaseAsset):
     def __init__(self, config: AssetConfig):
         super().__init__(config)
 
-        # Статические цены для товаров (можно расширить для динамических цен)
-        self.static_prices = {
-            "Приборы класик 24": 1250.0,
-            "Приборы класик 16": 1150.0,
-            "Приборы класик 24 зол": 1365.0,
-            "Приборы Флора 24": 1250.0,
-            "Анализатор": 100000.0,
-            "Гитара 1007 SN": 120000.0,
-        }
-
     async def get_price(self) -> Optional[AssetPrice]:
         """
-        Получает цену товара.
-        Для начала используем статические цены.
+        Получает цену товара из настроек.
         """
         try:
-            price = self.static_prices.get(self.symbol, 0)
+            # Получаем цену в рублях из настроек
+            price_rub = settings.PRODUCTS_PRICES.get(self.symbol, 0)
+
+            # Конвертируем в USD через currency_service
+            from src.services.currency_service import currency_service
+            price_usd = None
+            if price_rub > 0:
+                usd_to_rub_rate = currency_service.get_real_usd_rub_rate_sync()
+                if usd_to_rub_rate > 0:
+                    price_usd = price_rub / usd_to_rub_rate
 
             return AssetPrice(
                 symbol=self.symbol,
-                price=price,
-                currency="RUB",
+                price=price_usd if price_usd else 0,  # Возвращаем в USD
+                currency="USD",
                 source="static",
                 timestamp=datetime.now()
             )
@@ -65,6 +62,7 @@ class CommodityAsset(BaseAsset):
 
     def update_price(self, new_price: float):
         """Обновляет цену товара"""
-        if self.symbol in self.static_prices:
-            self.static_prices[self.symbol] = new_price
-            logger.info(f"Updated price for {self.symbol} to ${new_price}")
+        # Обновляем цену в настройках
+        if self.symbol in settings.PRODUCTS_PRICES:
+            settings.PRODUCTS_PRICES[self.symbol] = new_price
+            logger.info(f"Updated price for {self.symbol} to {new_price} ₽")

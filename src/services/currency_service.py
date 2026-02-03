@@ -98,6 +98,19 @@ class CurrencyService:
         """Для обратной совместимости - использует реальный курс"""
         return await self.usd_to_rub_real(amount_usd)
 
+    def convert_to_rub_sync(self, amount: float, from_currency: str) -> Optional[float]:
+        """Конвертирует любую валюту в RUB"""
+        if from_currency.lower() == "rub":
+            return amount
+
+        if from_currency.lower() == "usd":
+            return self.usd_to_rub_real_sync(amount)
+
+        rate = self.get_currency_to_rub_rate_sync(from_currency)
+        if rate:
+            return amount * rate
+        return None
+
     # ======================== КУРС USD ========================
 
     async def get_real_usd_rub_rate(self) -> float:

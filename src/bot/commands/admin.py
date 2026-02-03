@@ -22,6 +22,7 @@ def is_admin(user_id: int) -> bool:
     return user_id in admin_ids
 
 
+# src/bot/bot/admin.py
 async def update_product_price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /update_product_price - обновляет цену товара"""
     user = update.effective_user
@@ -30,7 +31,7 @@ async def update_product_price_command(update: Update, context: ContextTypes.DEF
     # Проверяем права администратора
     if not is_admin(user.id):
         await update.message.reply_text(
-            "❌ **Доступ запрещен**\n\nЭта команда только для администраторов.",
+            "❌ Доступ запрещен\n\nЭта команда только для администраторов.",
             parse_mode=None
         )
         return
@@ -38,11 +39,11 @@ async def update_product_price_command(update: Update, context: ContextTypes.DEF
     # Проверяем аргументы
     if len(context.args) != 2:
         await update.message.reply_text(
-            "❌ **Неправильный формат**\n\n"
-            "Используйте: `/update_product_price <код_товара> <цена>`\n"
+            "❌ Неправильный формат\n\n"
+            "Используйте: /update_product_price <код_товара> <цена>\n"
             "Примеры:\n"
-            "`/update_product_price product_1 120.5`\n"
-            "`/update_product_price product_2 300`",
+            "/update_product_price product_1 120.5\n"
+            "/update_product_price product_2 300",
             parse_mode=None
         )
         return
@@ -55,44 +56,54 @@ async def update_product_price_command(update: Update, context: ContextTypes.DEF
             raise ValueError
     except ValueError:
         await update.message.reply_text(
-            "❌ **Некорректная цена**\n\n"
+            "❌ Некорректная цена\n\n"
             "Цена должна быть положительным числом.",
             parse_mode=None
         )
         return
 
-    # Обновляем цену
+    # Проверяем существование товара
     asset = asset_registry.get_asset(product_code)
-
     if not asset:
         await update.message.reply_text(
-            f"❌ **Товар не найден**\n\n"
-            f"Товар с кодом `{product_code}` не существует.",
+            f"❌ Товар не найден\n\n"
+            f"Товар с кодом {product_code} не существует.",
             parse_mode=None
         )
         return
 
-    # Вызываем метод обновления цены, если он существует
-    if hasattr(asset, 'update_price'):
-        asset.update_price(new_price)
+    # Проверяем что это товар
+    if asset.asset_type.value != "commodity":
+        await update.message.reply_text(
+            f"❌ Не товар\n\n"
+            f"{asset.config.name} не является товаром.",
+            parse_mode=None
+        )
+        return
+
+    # Обновляем цену в настройках
+    from src.config.settings import settings
+    if product_code in settings.PRODUCTS_PRICES:
+        old_price = settings.PRODUCTS_PRICES[product_code]
+        settings.PRODUCTS_PRICES[product_code] = new_price
+
+        # Очищаем кэш цен
+        price_service.clear_cache()
+
+        await update.message.reply_text(
+            f"✅ Цена обновлена\n\n"
+            f"Товар: {asset.config.name}\n"
+            f"Старая цена: {currency_service.format_rub(old_price)}\n"
+            f"Новая цена: {currency_service.format_rub(new_price)}\n\n"
+            f"💡 Используйте /products чтобы увидеть изменения.",
+            parse_mode=None
+        )
     else:
         await update.message.reply_text(
-            f"❌ **Не удалось обновить цену**\n\n"
-            f"Товар {asset.config.name} не поддерживает обновление цен.",
+            f"❌ Ошибка\n\n"
+            f"Не удалось обновить цену для {product_code}.",
             parse_mode=None
         )
-        return
-
-    # Очищаем кэш цен
-    price_service.clear_cache()
-
-    await update.message.reply_text(
-        f"✅ **Цена обновлена**\n\n"
-        f"Товар: {asset.config.name}\n"
-        f"Новая цена: ${new_price:.2f}\n\n"
-        f"💡 Используйте `/products` чтобы увидеть изменения.",
-        parse_mode=None
-    )
 
 
 async def update_metal_prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
