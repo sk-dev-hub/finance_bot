@@ -357,40 +357,62 @@ def get_metals_assets_message(assets: List, prices_info: Dict) -> str:
     return message
 
 
-def get_products_assets_message(assets: List) -> str:
+def get_products_assets_message(assets: List, prices_info: Dict = None) -> str:
     """Сообщение со списком товаров"""
     if not assets:
         return "❌ Нет доступных товаров\nТовары еще не добавлены."
 
     message = "📦 Товары\n\n"
 
+    # Статические цены в рублях из commodity.py
+    static_prices_rub = {
+        "product_1": 1250.0,  # Приборы класик 24
+        "product_2": 1150.0,  # Приборы класик 16
+        "product_3": 1365.0,  # Приборы класик 24 зол
+        "product_4": 1250.0,  # Приборы Флора 24
+        "product_5": 100000.0,  # Анализатор
+        "product_6": 120000.0,  # Гитара 1007 SN
+    }
+
     for asset in assets:
+        price_rub = static_prices_rub.get(asset.symbol)
+
         message += f"{asset.config.emoji} {asset.config.name}\n"
         message += f"  Код: {asset.symbol}\n"
 
-        # Проверяем наличие цены
-        if hasattr(asset, 'config') and hasattr(asset.config, 'price'):
-            price = getattr(asset.config, 'price', None)
-            if price:
-                message += f"  Цена: ${price:.2f}\n"
-                price_rub = currency_service.usd_to_rub_real_sync(price)
-                message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
+        if price_rub:
+            # Показываем цену в рублях (исходная валюта)
+            message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
 
-        message += f"  Пример: /add {asset.symbol} 10\n\n"
+            # Конвертируем в USD используя CurrencyService
+            # Вариант 1: через прямой курс
+            price_usd = currency_service.convert_to_usd_sync(price_rub, "rub")
+
+            # Вариант 2: если метод не работает, через реальный курс
+            if price_usd is None:
+                usd_to_rub_rate = currency_service.get_real_usd_rub_rate_sync()
+                price_usd = price_rub / usd_to_rub_rate if usd_to_rub_rate > 0 else 0
+
+            message += f"  Цена: ${price_usd:,.2f}\n"
+        else:
+            message += f"  Цена: уточняется\n"
+
+        message += f"  Пример: /add {asset.symbol} 1\n\n"
 
     # Разделитель
     message += "─" * 25 + "\n"
 
     # Информация
     message += "💡 Как работать с товарами:\n"
-    message += "/add product_1 5 — добавить 5 единиц\n"
-    message += "/portfolio — общая стоимость\n"
-    message += "/remove product_1 2 — удалить 2 единицы\n\n"
+    message += "/add product_1 5 — добавить 5 комплектов приборов\n"
+    message += "/add product_5 1 — добавить анализатор\n"
+    message += "/portfolio — общая стоимость\n\n"
 
     message += "📊 Особенности:\n"
-    message += "• Цены устанавливаются администратором\n"
+    message += "• Цены в рублях\n"
     message += "• Количество в натуральных единицах\n"
     message += "• Автоматическая конвертация в USD/RUB\n"
+    message += "• Для обновления цен: /update_product_price\n"
 
     return message
 

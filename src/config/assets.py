@@ -289,43 +289,83 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
     ),
 
     # ================= ТОВАРЫ =================
+
     "product_1": AssetConfig(
         symbol="product_1",
-        name="Товар 1",
+        name="Приборы класик 24",
         asset_type=AssetType.COMMODITY,
-        emoji="📦",
-        display_precision=2,
+        emoji="⚗️",
+        display_precision=0,  # Целые единицы
         price_source="static",
-        description="Товар 1 (описание можно добавить позже)",
+        description="Комплект приборов Классик 24 штуки",
         min_amount=1,
-        max_amount=10000,
-        aliases=["товар1", "продукт1", "item1"]
+        max_amount=1000,
+        aliases=["приборы_классик_24", "классик_24", "instruments_classic_24"]
     ),
 
     "product_2": AssetConfig(
         symbol="product_2",
-        name="Товар 2",
+        name="Приборы класик 16",
         asset_type=AssetType.COMMODITY,
-        emoji="📦",
-        display_precision=2,
+        emoji="⚗️",
+        display_precision=0,
         price_source="static",
-        description="Товар 2 (описание можно добавить позже)",
+        description="Комплект приборов Классик 16 штук",
         min_amount=1,
-        max_amount=10000,
-        aliases=["товар2", "продукт2", "item2"]
+        max_amount=1000,
+        aliases=["приборы_классик_16", "классик_16", "instruments_classic_16"]
     ),
 
     "product_3": AssetConfig(
         symbol="product_3",
-        name="Товар 3",
+        name="Приборы класик 24 зол",
         asset_type=AssetType.COMMODITY,
-        emoji="📦",
-        display_precision=2,
+        emoji="⚗️",
+        display_precision=0,
         price_source="static",
-        description="Товар 3 (описание можно добавить позже)",
+        description="Комплект приборов Классик 24 штуки золото",
         min_amount=1,
-        max_amount=10000,
-        aliases=["товар3", "продукт3", "item3"]
+        max_amount=1000,
+        aliases=["приборы_классик_24_зол", "классик_24_зол", "instruments_classic_24_gold"]
+    ),
+
+    "product_4": AssetConfig(
+        symbol="product_4",
+        name="Приборы Флора 24",
+        asset_type=AssetType.COMMODITY,
+        emoji="⚗️",
+        display_precision=0,
+        price_source="static",
+        description="Комплект приборов Флора 24 штуки",
+        min_amount=1,
+        max_amount=1000,
+        aliases=["приборы_флора_24", "флора_24", "instruments_flora_24"]
+    ),
+
+    "product_5": AssetConfig(
+        symbol="product_5",
+        name="Анализатор",
+        asset_type=AssetType.COMMODITY,
+        emoji="🔬",
+        display_precision=0,
+        price_source="static",
+        description="Аналитический прибор анализатор",
+        min_amount=1,
+        max_amount=100,
+        aliases=["анализатор", "analizer", "analyzer"]
+    ),
+
+    "product_6": AssetConfig(
+        symbol="product_6",
+        name="Гитара 1007 SN",
+        asset_type=AssetType.COMMODITY,
+        emoji="🎸",
+        display_precision=0,
+        price_source="static",
+        description="Гитара модели 1007 SN",
+        min_amount=1,
+        max_amount=100,
+        aliases=["гитара_1007", "guitar_1007_sn", "1007_sn"]
     ),
 
 # ================= ETF =================

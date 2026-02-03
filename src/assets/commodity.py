@@ -21,9 +21,12 @@ class CommodityAsset(BaseAsset):
 
         # Статические цены для товаров (можно расширить для динамических цен)
         self.static_prices = {
-            "product_1": 100.0,  # Цена в USD
-            "product_2": 250.0,
-            "product_3": 500.0,
+            "Приборы класик 24": 1250.0,
+            "Приборы класик 16": 1150.0,
+            "Приборы класик 24 зол": 1365.0,
+            "Приборы Флора 24": 1250.0,
+            "Анализатор": 100000.0,
+            "Гитара 1007 SN": 120000.0,
         }
 
     async def get_price(self) -> Optional[AssetPrice]:
@@ -37,7 +40,7 @@ class CommodityAsset(BaseAsset):
             return AssetPrice(
                 symbol=self.symbol,
                 price=price,
-                currency="USD",
+                currency="RUB",
                 source="static",
                 timestamp=datetime.now()
             )
