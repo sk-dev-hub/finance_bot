@@ -51,7 +51,7 @@ class Settings:
     UPDATE_INTERVAL: int = 600  # секунды
 
     # Курс ЦБ  + 1 рубль
-    RUB_EXCHANGE_RATE: float = 180.0  # Курс ЦБ + 1 рубль
+    RUB_EXCHANGE_RATE: float = 80.0  # Курс ЦБ + 1 рубль
 
     @classmethod
     def load(cls) -> 'Settings':

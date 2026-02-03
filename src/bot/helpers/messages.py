@@ -172,70 +172,67 @@ def get_portfolio_message(
     return message
 
 
-def get_crypto_assets_message(assets: List, prices_info: Dict) -> str:  # Добавлен параметр prices_info
+def get_crypto_assets_message(assets: List, prices_info: Dict) -> str:
     """Сообщение со списком криптовалют"""
     if not assets:
-        return "❌ **Нет доступных криптовалют**\n\nПожалуйста, попробуйте позже."
+        return "❌ Нет доступных криптовалют\nПожалуйста, попробуйте позже."
 
-    message = "🏦 **Доступные криптовалюты:**\n\n"
-
-    # Группируем по популярности
+    # Группировка по популярности
     major_coins = ["btc", "eth", "ton", "usdt", "sol"]
     major_assets = [a for a in assets if a.symbol in major_coins]
     other_assets = [a for a in assets if a.symbol not in major_coins]
 
+    message = "🏦 Криптовалюты\n\n"
+
+    # Основные криптовалюты
     if major_assets:
-        message += "**💰 Основные:**\n"
+        message += "💰 Основные:\n"
         for asset in major_assets:
             price_info = prices_info.get(asset.symbol, {})
-            message += f"{asset.config.emoji} **{asset.config.name}**\n"
-            message += f"   Символ: `{asset.symbol.upper()}`\n"
+            price_usd = price_info.get("price_usd")
+            price_rub = price_info.get("price_rub")
 
-            # Показываем цены в USD и RUB
-            if price_info.get("price_usd"):
-                price_usd = price_info["price_usd"]
-                price_rub = price_info.get("price_rub", currency_service.usd_to_rub(price_usd))
+            message += f"{asset.config.emoji} {asset.config.name} ({asset.symbol.upper()})\n"
 
-                message += f"   Цена USD: ${price_usd:,.4f}\n"
-                message += f"   Цена RUB: {currency_service.format_rub(price_rub)}\n"
+            if price_usd:
+                if not price_rub:
+                    price_rub = currency_service.usd_to_rub(price_usd)
 
-            # Примерное количество
-            if asset.symbol == "btc":
-                message += "   Пример: `/add btc 0.01`\n"
-            elif asset.symbol == "eth":
-                message += "   Пример: `/add eth 0.1`\n"
-            elif asset.symbol == "ton":
-                message += "   Пример: `/add ton 10`\n"
-            elif asset.symbol == "usdt":
-                message += "   Пример: `/add usdt 100`\n"
-            elif asset.symbol == "sol":
-                message += "   Пример: `/add sol 1.0`\n"
-            else:
-                message += "   Пример: `/add {symbol} 1.0`\n".format(symbol=asset.symbol)
+                message += f"  Цена: ${price_usd:,.4f} | {currency_service.format_rub(price_rub)}\n"
+                if change := price_info.get("change_24h"):
+                    arrow = "📈" if change >= 0 else "📉"
+                    message += f"  24ч: {arrow} {change:+.1f}%\n"
 
-            message += "\n"
+            message += f"  Пример: /add {asset.symbol} "
 
+            # Примерные количества
+            examples = {
+                "btc": "0.01", "eth": "0.1", "ton": "10",
+                "usdt": "100", "sol": "1.0"
+            }
+            message += f"{examples.get(asset.symbol, '1.0')}\n\n"
+
+    # Другие криптовалюты
     if other_assets:
-        message += "**🔹 Другие:**\n"
+        message += "🔹 Другие:\n"
         for asset in other_assets:
             price_info = prices_info.get(asset.symbol, {})
-            message += f"{asset.config.emoji} **{asset.config.name}** (`{asset.symbol.upper()}`)"
+            price_usd = price_info.get("price_usd")
 
-            if price_info.get("price_usd"):
-                price_usd = price_info["price_usd"]
+            line = f"{asset.config.emoji} {asset.config.name} ({asset.symbol.upper()})"
+            if price_usd:
                 price_rub = price_info.get("price_rub", currency_service.usd_to_rub(price_usd))
-                message += f" — ${price_usd:.4f} | {currency_service.format_rub(price_rub)}"
+                line += f" — ${price_usd:.4f} | {currency_service.format_rub(price_rub)}"
 
-            message += "\n"
-        message += "\n"
+            message += f"{line}\n"
 
-    message += "-" * 30 + "\n"
-    message += "📝 **Как использовать:**\n"
-    message += "1. `/add btc 0.1` — купить 0.1 Bitcoin\n"
-    message += "2. `/portfolio` — посмотреть портфель\n"
-    message += "3. `/prices` — текущие цены\n"
-    message += "4. `/remove btc` — продать весь Bitcoin\n\n"
-    message += "💡 **Совет:** Начните с Bitcoin (BTC) или Ethereum (ETH)"
+    # Разделитель и подсказки
+    message += "─" * 25 + "\n"
+    message += "💡 Примеры:\n"
+    message += "/add btc 0.1 — купить Bitcoin\n"
+    message += "/portfolio — посмотреть портфель\n"
+    message += "/prices — текущие цены\n"
+    message += "/stats — статистика бота\n\n"
 
     return message
 
@@ -243,125 +240,119 @@ def get_crypto_assets_message(assets: List, prices_info: Dict) -> str:  # Доб
 def get_fiat_assets_message(assets: List, prices_info: Dict) -> str:
     """Сообщение со списком фиатных валют"""
     if not assets:
-        return "❌ **Нет доступных фиатных валют**\n\nПожалуйста, попробуйте позже."
+        return "❌ Нет доступных фиатных валют\nПожалуйста, попробуйте позже."
 
-    message = "💵 **Доступные фиатные валюты:**\n\n"
+    # Получаем курсы
+    real_rate = currency_service.get_real_usd_rub_rate_sync()
+    cbr_rate = currency_service.get_cbr_usd_rub_rate_sync()
+
+    message = "💵 Валюты\n\n"
 
     for asset in assets:
         price_info = prices_info.get(asset.symbol, {})
-        message += f"{asset.config.emoji} **{asset.config.name}**\n"
-        message += f"   Символ: `{asset.symbol.upper()}`\n"
-
-        # Получаем цену в USD
         price_usd = price_info.get("price_usd")
 
-        if price_usd:
-            if asset.symbol.lower() == "usd":
-                # Для USD показываем оба курса
-                cbr_rate = currency_service.get_cbr_usd_rub_rate_sync()
-                real_rate = currency_service.get_real_usd_rub_rate_sync()
-                message += "   Курс: 1 USD = 1.0000 USD\n"
-                message += f"         = {cbr_rate:.2f} ₽ (ЦБ РФ)\n"
-                message += f"         = {real_rate:.2f} ₽ (реальный +2 ₽)\n"
-            else:
-                # Для других валют - просто курс к USD
-                message += f"   Курс: 1 {asset.symbol.upper()} = ${price_usd:.4f}\n"
+        message += f"{asset.config.emoji} {asset.config.name} ({asset.symbol.upper()})\n"
 
-                # Конвертируем в RUB через реальный курс USD
-                price_rub = currency_service.usd_to_rub_real_sync(price_usd)
-                message += f"         = {currency_service.format_rub(price_rub)}\n"
+        if asset.symbol.lower() == "usd":
+            # Особый случай для USD
+            message += f"  1 USD = 1.0000 USD\n"
+            message += f"  1 USD = {cbr_rate:.2f} ₽ (ЦБ РФ)\n"
+            message += f"  1 USD = {real_rate:.2f} ₽ (реальный +2 ₽)\n"
+        elif price_usd:
+            # Другие валюты
+            price_rub = currency_service.usd_to_rub_real_sync(price_usd)
+            message += f"  1 {asset.symbol.upper()} = ${price_usd:.4f}\n"
+            message += f"  1 {asset.symbol.upper()} = {currency_service.format_rub(price_rub)}\n"
 
-                # Также показываем прямой курс к RUB от ЦБ
-                if hasattr(currency_service, 'get_currency_to_rub_rate_sync'):
-                    direct_rate = currency_service.get_currency_to_rub_rate_sync(asset.symbol.lower())
-                else:
-                    # Альтернатива через конвертацию
-                    price_usd = price_info.get("price_usd")
-                    if price_usd:
-                        # Конвертируем через реальный курс USD
-                        direct_rate = price_usd * currency_service.get_real_usd_rub_rate_sync()
-                    else:
-                        direct_rate = None
-
+            # Прямой курс от ЦБ если доступен
+            if hasattr(currency_service, 'get_currency_to_rub_rate_sync'):
+                direct_rate = currency_service.get_currency_to_rub_rate_sync(asset.symbol.lower())
                 if direct_rate:
-                    message += f"         = {currency_service.format_rub(direct_rate)} (прямой курс ЦБ)\n"
+                    message += f"  1 {asset.symbol.upper()} = {currency_service.format_rub(direct_rate)} (ЦБ РФ)\n"
         else:
-            message += "   Курс: ❌ временно недоступен\n"
+            message += "  Курс: ❌ временно недоступен\n"
 
         # Пример добавления
-        if asset.symbol == "rub":
-            message += "   Пример: `/add rub 1000`\n\n"
-        elif asset.symbol == "eur":
-            message += "   Пример: `/add eur 100`\n\n"
-        elif asset.symbol == "usd":
-            message += "   Пример: `/add usd 100`\n\n"
-        else:
-            message += f"   Пример: `/add {asset.symbol} 100`\n\n"
+        examples = {"rub": "1000", "eur": "100", "usd": "100"}
+        example = examples.get(asset.symbol.lower(), "100")
+        message += f"  Пример: /add {asset.symbol} {example}\n\n"
 
-    # Добавляем информацию о курсах
-    message += "-" * 30 + "\n"
-    message += currency_service.get_rate_info() + "\n\n"
+    # Информация о курсах
+    message += "─" * 25 + "\n"
+    message += "💱 Курсы обмена:\n"
+    message += f"  ЦБ РФ: 1 USD = {cbr_rate:.2f} ₽\n"
+    message += f"  Реальный: 1 USD = {real_rate:.2f} ₽ (+2 ₽ к ЦБ)\n\n"
 
-    message += "📝 **Как использовать:**\n"
-    message += "1. `/add rub 10000` — добавить 10,000 рублей\n"
-    message += "2. `/add eur 500` — добавить 500 евро\n"
-    message += "3. `/portfolio` — посмотреть общую стоимость в USD\n\n"
-
-    message += "💡 **Примечание:**\n"
-    message += "• К курсу USD добавляется +2 рубля\n"
-    message += "• Курсы других валют - прямые курсы ЦБ РФ\n"
-    message += "• Для конвертации в USD используется реальный курс USD/RUB\n"
+    message += "💡 Как использовать:\n"
+    message += "/add rub 10000 — добавить рубли\n"
+    message += "/add eur 500 — добавить евро\n"
+    message += "/portfolio — общая стоимость в USD\n\n"
 
     return message
 
 
 def get_metals_assets_message(assets: List, prices_info: Dict) -> str:
     """Сообщение со списком драгоценных металлов"""
-    message = "🥇 **Драгоценные металлы:**\n\n"
+    if not assets:
+        return "❌ Нет доступных драгоценных металлов\nПожалуйста, попробуйте позже."
 
-    # Золотые монеты
+    message = "🥇 Драгоценные металлы\n\n"
+
+    # Группируем по типу металла
     gold_assets = [a for a in assets if "gold" in a.symbol]
+    silver_assets = [a for a in assets if "silver" in a.symbol]
+
+    # Золото
     if gold_assets:
-        message += "**💰 Золотые монеты:**\n"
+        message += "💰 Золото:\n"
         for asset in gold_assets:
             price_info = prices_info.get(asset.symbol, {})
-            message += f"{asset.config.emoji} **{asset.config.name}**\n"
+
+            message += f"{asset.config.emoji} {asset.config.name}\n"
 
             if hasattr(asset, 'get_metal_info'):
                 info = asset.get_metal_info()
-                message += f"   Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
-                message += f"   Чистота: {info['purity'] * 100:.2f}%\n"
+                message += f"  Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
+                message += f"  Чистота: {info['purity'] * 100:.1f}%\n"
 
-            if price_info.get("price"):
-                message += f"   Цена: ${price_info['price']:.2f}\n"
+            if price := price_info.get("price"):
+                message += f"  Цена: ${price:.2f}\n"
+                if price_rub := price_info.get("price_rub"):
+                    message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
 
-            message += f"   Пример: `/add {asset.symbol} 1`\n\n"
+            message += f"  Пример: /add {asset.symbol} 1\n\n"
 
-    # Серебряные монеты
-    silver_assets = [a for a in assets if "silver" in a.symbol]
+    # Серебро
     if silver_assets:
-        message += "**🥈 Серебряные монеты:**\n"
+        message += "🥈 Серебро:\n"
         for asset in silver_assets:
             price_info = prices_info.get(asset.symbol, {})
-            message += f"{asset.config.emoji} **{asset.config.name}**\n"
+
+            message += f"{asset.config.emoji} {asset.config.name}\n"
 
             if hasattr(asset, 'get_metal_info'):
                 info = asset.get_metal_info()
-                message += f"   Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
-                message += f"   Чистота: {info['purity'] * 100:.2f}%\n"
+                message += f"  Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
+                message += f"  Чистота: {info['purity'] * 100:.1f}%\n"
 
-            if price_info.get("price"):
-                message += f"   Цена: ${price_info['price']:.2f}\n"
+            if price := price_info.get("price"):
+                message += f"  Цена: ${price:.2f}\n"
+                if price_rub := price_info.get("price_rub"):
+                    message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
 
-            message += f"   Пример: `/add {asset.symbol} 1`\n\n"
+            message += f"  Пример: /add {asset.symbol} 1\n\n"
 
-    message += "-" * 30 + "\n"
-    message += "📝 **Как использовать:**\n"
-    message += "1. `/add gold_coin_7_78 2` — добавить 2 золотые монеты\n"
-    message += "2. `/add silver_coin_31_1 5` — добавить 5 серебряных монет\n"
-    message += "3. `/portfolio` — посмотреть общую стоимость\n\n"
+    # Разделитель и информация
+    message += "─" * 25 + "\n"
+    message += "💡 Как использовать:\n"
+    message += "/add gold_coin_7_78 2 — добавить 2 золотые монеты\n"
+    message += "/add silver_coin_31_1 5 — добавить 5 серебряных\n"
+    message += "/portfolio — посмотреть общую стоимость\n\n"
 
-    message += "💡 **Примечание:** Цены на основе биржевых котировок с учетом премии за чеканку."
+    message += "📊 Особенности:\n"
+    message += "• Цены на основе биржевых котировок\n"
+    message += "• Вес указан в граммах и унциях\n"
 
     return message
 
@@ -369,22 +360,37 @@ def get_metals_assets_message(assets: List, prices_info: Dict) -> str:
 def get_products_assets_message(assets: List) -> str:
     """Сообщение со списком товаров"""
     if not assets:
-        return "❌ **Нет доступных товаров**\n\nТовары еще не добавлены."
+        return "❌ Нет доступных товаров\nТовары еще не добавлены."
 
-    message = "📦 **Доступные товары:**\n\n"
+    message = "📦 Товары\n\n"
 
     for asset in assets:
-        message += f"{asset.config.emoji} **{asset.config.name}**\n"
-        message += f"   Код: `{asset.symbol}`\n"
-        message += f"   Пример: `/add {asset.symbol} 10`\n\n"
+        message += f"{asset.config.emoji} {asset.config.name}\n"
+        message += f"  Код: {asset.symbol}\n"
 
-    message += "-" * 30 + "\n"
-    message += "📝 **Как использовать:**\n"
-    message += "1. `/add product_1 5` — добавить 5 единиц Товара 1\n"
-    message += "2. `/portfolio` — посмотреть общую стоимость\n"
-    message += "3. `/remove product_1 2` — удалить 2 единицы\n\n"
+        # Проверяем наличие цены
+        if hasattr(asset, 'config') and hasattr(asset.config, 'price'):
+            price = getattr(asset.config, 'price', None)
+            if price:
+                message += f"  Цена: ${price:.2f}\n"
+                price_rub = currency_service.usd_to_rub_real_sync(price)
+                message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
 
-    message += "💡 **Примечание:** Цены товаров статические."
+        message += f"  Пример: /add {asset.symbol} 10\n\n"
+
+    # Разделитель
+    message += "─" * 25 + "\n"
+
+    # Информация
+    message += "💡 Как работать с товарами:\n"
+    message += "/add product_1 5 — добавить 5 единиц\n"
+    message += "/portfolio — общая стоимость\n"
+    message += "/remove product_1 2 — удалить 2 единицы\n\n"
+
+    message += "📊 Особенности:\n"
+    message += "• Цены устанавливаются администратором\n"
+    message += "• Количество в натуральных единицах\n"
+    message += "• Автоматическая конвертация в USD/RUB\n"
 
     return message
 
@@ -392,26 +398,50 @@ def get_products_assets_message(assets: List) -> str:
 def get_receivables_assets_message(assets: List) -> str:
     """Сообщение со списком дебиторской задолженности"""
     if not assets:
-        return "❌ **Нет доступной дебиторской задолженности**"
+        return "❌ Нет доступной дебиторской задолженности"
 
-    message = "🧾 **Дебиторская задолженность:**\n\n"
+    message = "🧾 Дебиторская задолженность\n\n"
 
     for asset in assets:
+        # Получаем дисконт
         discount = getattr(asset, 'discount_factor', {}).get(asset.symbol, 1.0)
         discount_percent = (1 - discount) * 100
 
-        message += f"{asset.config.emoji} **{asset.config.name}**\n"
-        message += f"   Код: `{asset.symbol}`\n"
-        message += f"   Дисконт: {discount_percent:.1f}%\n"
-        message += f"   Пример: `/add {asset.symbol} 50000` — добавить задолженность $50,000\n\n"
+        message += f"{asset.config.emoji} {asset.config.name}\n"
+        message += f"  Код: {asset.symbol}\n"
+        message += f"  Дисконт: {discount_percent:.1f}%\n"
 
-    message += "-" * 30 + "\n"
-    message += "📝 **Как использовать:**\n"
-    message += "1. `/add receivable_ecm 100000` — добавить дебиторку $100,000\n"
-    message += "2. `/portfolio` — посмотреть в портфеле\n"
-    message += "3. `/remove receivable_ecm 50000` — списать $50,000\n\n"
+        # Базовая стоимость (номинал)
+        if hasattr(asset, 'config') and hasattr(asset.config, 'nominal_value'):
+            nominal = asset.config.nominal_value
+            discounted = nominal * discount
 
-    message += "💡 **Примечание:** Стоимость учитывает дисконт (риск непогашения)."
+            message += f"  Номинал: ${nominal:,.0f}\n"
+            message += f"  С учетом дисконта: ${discounted:,.0f}\n"
+
+            # В рублях
+            rub_value = currency_service.usd_to_rub_real_sync(discounted)
+            message += f"  Стоимость: {currency_service.format_rub(rub_value)}\n"
+
+        message += f"  Пример: /add {asset.symbol} 50000\n\n"
+
+    # Разделитель
+    message += "─" * 25 + "\n"
+
+    # Объяснение
+    message += "💡 Что такое дебиторская задолженность:\n"
+    message += "• Долги, которые вам должны вернуть\n"
+    message += "• Учитываются с дисконтом (риск непогашения)\n"
+    message += "• Отображаются в портфеле по дисконтированной стоимости\n\n"
+
+    message += "📊 Как использовать:\n"
+    message += "/add receivable_ecm 100000 — добавить $100,000\n"
+    message += "/portfolio — стоимость с учетом дисконта\n"
+    message += "/remove receivable_ecm 50000 — списать $50,000\n\n"
+
+    message += "⚠️  Риски:\n"
+    message += "• Возможность неполного погашения\n"
+    message += "• Изменение дисконта со временем\n"
 
     return message
 
@@ -419,39 +449,54 @@ def get_receivables_assets_message(assets: List) -> str:
 def get_etf_assets_message(assets: List, prices_info: Dict) -> str:
     """Сообщение со списком ETF"""
     if not assets:
-        return "❌ **Нет доступных ETF**\n\nETF еще не добавлены."
+        return "❌ Нет доступных ETF\nETF еще не добавлены."
 
-    message = "📊 **Доступные ETF:**\n\n"
+    message = "📊 ETF (биржевые фонды)\n\n"
 
     for asset in assets:
         price_info = prices_info.get(asset.symbol, {})
+        price = price_info.get("price")
 
-        message += f"{asset.config.emoji} **{asset.config.name}**\n"
-        message += f"   Символ: `{asset.symbol.upper()}`\n"
+        message += f"{asset.config.emoji} {asset.config.name}\n"
+        message += f"  Тикер: {asset.symbol.upper()}\n"
 
-        if price_info.get("price"):
-            price = price_info["price"]
-            # Определяем валюту по тикеру
+        if price:
+            # Определяем валюту и форматируем
             if asset.symbol == "fxgd":
-                message += f"   Цена: {price:,.2f} ₽\n"
+                message += f"  Цена: {price:,.2f} ₽\n"
+                price_rub = price  # FXGD уже в рублях
             else:
-                message += f"   Цена: ${price:.2f}\n"
+                message += f"  Цена: ${price:.2f}\n"
+                price_rub = currency_service.usd_to_rub_real_sync(price)
+                message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
 
-        # Информация о комиссии для FXGD
+        # Специфичная информация
         if asset.symbol == "fxgd":
-            message += f"   Комиссия: 0.45%\n"
-            message += f"   1 акция ≈ 0.1g золота\n"
+            message += f"  Комиссия: 0.45% годовых\n"
+            message += f"  1 акция ≈ 0.1g золота\n"
+            message += f"  Биржа: MOEX (Москва)\n"
 
-        message += f"   Пример: `/add {asset.symbol} 10`\n\n"
+        message += f"  Пример: /add {asset.symbol} 10\n\n"
 
-    message += "─" * 30 + "\n"
-    message += "💡 **ETF (Exchange Traded Fund)** — биржевой инвестиционный фонд,\n"
-    message += "акции которого торгуются на бирже как обычные акции.\n\n"
+    # Разделитель
+    message += "─" * 25 + "\n"
 
-    message += "📈 **Преимущества FXGD:**\n"
+    # Объяснение ETF
+    message += "💡 Что такое ETF:\n"
+    message += "• Биржевой инвестиционный фонд\n"
+    message += "• Торгуется как обычные акции\n"
+    message += "• Следует за индексом или активом\n"
+    message += "• Низкий порог входа\n\n"
+
+    message += "📈 Преимущества FXGD:\n"
     message += "• Ликвидность (торгуется на MOEX)\n"
-    message += "• Низкий порог входа\n"
-    message += "• Прозрачная структура\n"
     message += "• Физическое обеспечение золотом\n"
+    message += "• Прозрачная структура\n"
+    message += "• Низкие комиссии (0.45%)\n\n"
+
+    message += "🚀 Как инвестировать:\n"
+    message += "/add fxgd 10 — купить 10 акций\n"
+    message += "/portfolio — отслеживать стоимость\n"
+    message += "/prices — текущие котировки\n"
 
     return message

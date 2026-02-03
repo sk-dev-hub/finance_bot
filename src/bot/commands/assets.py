@@ -25,7 +25,8 @@ from ..helpers.messages import (
     get_fiat_assets_message,
     get_metals_assets_message,
     get_products_assets_message,
-    get_receivables_assets_message
+    get_receivables_assets_message,
+    get_etf_assets_message
 )
 
 logger = logging.getLogger(__name__)
@@ -126,7 +127,7 @@ async def etfs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not etf_assets:
         await update.message.reply_text(
-            "❌ **Нет доступных ETF**\n\nETF еще не добавлены.",
+            "❌ Нет доступных ETF\nETF еще не добавлены.",
             parse_mode=None
         )
         return
@@ -135,36 +136,7 @@ async def etfs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbols = [asset.symbol for asset in etf_assets]
     prices_info = await get_asset_details_with_prices(symbols)
 
-    message = "📊 **Доступные ETF:**\n\n"
-
-    for asset in etf_assets:
-        price_info = prices_info.get(asset.symbol, {})
-
-        message += f"{asset.config.emoji} **{asset.config.name}**\n"
-        message += f"   Символ: `{asset.symbol.upper()}`\n"
-
-        if price_info.get("price"):
-            price = price_info["price"]
-            message += f"   Цена: {price:,.2f} ₽\n"  # FXGD торгуется в рублях
-
-        # Получаем дополнительную информацию для ETF
-        if hasattr(asset, 'get_etf_info'):
-            etf_info = asset.get_etf_info()
-            if etf_info.get('expense_ratio'):
-                message += f"   Комиссия: {etf_info['expense_ratio']:.2f}%\n"
-
-        message += f"   Пример: `/add {asset.symbol} 10`\n\n"
-
-    message += "─" * 30 + "\n"
-    message += "📝 **О ETF FXGD:**\n"
-    message += "• Торгуется на Московской бирже\n"
-    message += "• Каждая акция соответствует 0.1 грамма золота\n"
-    message += "• Комиссия управления: 0.45% годовых\n"
-    message += "• Валюта торгов: Российский рубль (₽)\n\n"
-    message += "💡 **Как использовать:**\n"
-    message += "1. `/add fxgd 10` — купить 10 акций FXGD\n"
-    message += "2. `/portfolio` — посмотреть в портфеле\n"
-    message += "3. `/remove fxgd 5` — продать 5 акций\n\n"
-    message += "_Данные с Yahoo Finance, обновляются в реальном времени_"
+    # Используем нашу новую функцию
+    message = get_etf_assets_message(etf_assets, prices_info)
 
     await update.message.reply_text(message, parse_mode=None)
