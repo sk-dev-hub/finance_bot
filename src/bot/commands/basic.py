@@ -1,4 +1,4 @@
-# src/bot/bot/basic.py
+# src/bot/bot/basic.py (обновленная версия)
 """
 Основные команды бота: start, help, settings.
 """
@@ -14,6 +14,7 @@ from ..helpers.messages import (
     get_settings_message
 )
 from ..helpers.command_utils import get_user_display_name, record_user_activity
+from ..keyboards import get_start_keyboard, get_main_keyboard, get_quick_actions_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +37,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome_message = get_welcome_message(get_user_display_name(update))
 
+    # Отправляем сообщение с клавиатурой
     await update.message.reply_text(
         welcome_message,
-        parse_mode=None
+        parse_mode=None,
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -51,7 +54,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         help_message,
-        parse_mode=None
+        parse_mode=None,
+        reply_markup=get_quick_actions_keyboard()
     )
 
 
@@ -75,5 +79,6 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         settings_message,
-        parse_mode=None
+        parse_mode=None,
+        reply_markup=get_main_keyboard()
     )

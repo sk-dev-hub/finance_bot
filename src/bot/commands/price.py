@@ -202,7 +202,7 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message, parse_mode=None)
 
 
-# src/bot/bot/price.py
+# Измененный метод stats_command в price.py
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /stats - статистика бота"""
     user = update.effective_user
@@ -248,7 +248,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     usd_rub_formatted = currency_service.format_rub(usd_rub_rate)
 
     # Формируем сообщение
-    message = "📊 **Статистика бота**\n\n"
+    message = "📊 Статистика бота\n\n"
 
     # Статистика активов
     all_assets = asset_registry.get_all_assets()
@@ -259,7 +259,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     receivables_count = len(asset_registry.get_receivable_assets())
     etf_count = len(asset_registry.get_etf_assets())
 
-    message += "💎 **Активы:**\n"
+    message += "💎 Активы:\n"
     message += f"• Всего активов: {len(all_assets)}\n"
     message += f"• Криптовалюты: {crypto_count}\n"
     message += f"• Фиатные валюты: {fiat_count}\n"
@@ -269,7 +269,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message += f"• ETF: {etf_count}\n\n"
 
     # Популярные активы
-    message += "🌟 **Популярные активы:**\n"
+    message += "🌟 Популярные активы:\n"
 
     # Получаем информацию о популярных активах
     popular_symbols = ["btc", "eth", "ton", "usdt", "sol"]
@@ -299,7 +299,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message += "\n"
 
-    message += "🔄 **Система:**\n"
+    message += "🔄 Система:\n"
     message += f"• Статус: ✅ Работает\n"
     message += f"• Источник цен: {active_source}\n"
 
@@ -326,13 +326,13 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message += f"• Московское время: {formatted_time}\n\n"
 
-    message += "📈 **Команды:**\n"
-    message += "• `/coins` — список криптовалют\n"
-    message += "• `/currencies` — список валют\n"
-    message += "• `/metals` — драгоценные металлы\n"
-    message += "• `/prices` — текущие цены\n"
-    message += "• `/portfolio` — ваш портфель\n\n"
+    message += "📈 Команды:\n"
+    message += "• /coins — список криптовалют\n"
+    message += "• /currencies — список валют\n"
+    message += "• /metals — драгоценные металлы\n"
+    message += "• /prices — текущие цены\n"
+    message += "• /portfolio — ваш портфель\n\n"
 
-    message += "💡 _Статистика обновляется в реальном времени_"
+    message += "💡 Статистика обновляется в реальном времени"
 
     await update.message.reply_text(message, parse_mode=None)
