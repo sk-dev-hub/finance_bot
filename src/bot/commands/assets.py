@@ -69,6 +69,7 @@ async def currencies_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text(message, parse_mode=None)
 
+
 async def metals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /metals - показывает драгоценные металлы"""
     user = update.effective_user
@@ -83,8 +84,56 @@ async def metals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Получаем актуальные цены на металлы из ЦБ РФ ОДИН раз
+    from ...services.cbr_metals_service import metal_service
+    from ...services.currency_service import currency_service
+
+    await currency_service.initialize()
+    usd_to_rub_rate = currency_service.get_real_usd_rub_rate_sync()
+
+    metal_prices_info = {}
+    metal_date = ""
+
+    try:
+        metal_prices = await metal_service.get_latest_prices()
+        if metal_prices:
+            latest_metal_price = metal_prices[0]
+            metal_date = latest_metal_price.date.strftime('%d.%m.%Y')
+
+            # Заполняем цены для базовых металлов
+            for metal_symbol in ["gold", "silver", "platinum", "palladium"]:
+                price_rub = getattr(latest_metal_price, metal_symbol, None)
+                if price_rub:
+                    price_usd = price_rub / usd_to_rub_rate if usd_to_rub_rate > 0 else None
+                    metal_prices_info[metal_symbol] = {
+                        "price_usd": price_usd,
+                        "price_rub": price_rub,
+                        "date": metal_date
+                    }
+    except Exception as e:
+        logger.error(f"Error getting metal prices: {e}")
+
+    # Формируем полный prices_info для всех активов
     symbols = [asset.symbol for asset in precious_metals]
-    prices_info = await get_asset_details_with_prices(symbols)
+    prices_info = {}
+
+    for symbol in symbols:
+        # Для базовых металлов используем цены из ЦБ РФ
+        if symbol in ["gold", "silver", "platinum", "palladium"]:
+            if symbol in metal_prices_info:
+                prices_info[symbol] = metal_prices_info[symbol]
+            else:
+                # Если нет цены, используем стандартный метод
+                asset_prices = await get_asset_details_with_prices([symbol])
+                if symbol in asset_prices:
+                    prices_info[symbol] = asset_prices[symbol]
+
+        # Для монет используем get_asset_details_with_prices
+        # (он уже будет использовать обновленные calculate_price)
+        else:
+            asset_prices = await get_asset_details_with_prices([symbol])
+            if symbol in asset_prices:
+                prices_info[symbol] = asset_prices[symbol]
 
     message = get_metals_assets_message(precious_metals, prices_info)
 

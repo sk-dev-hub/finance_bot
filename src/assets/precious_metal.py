@@ -34,13 +34,6 @@ class PreciousMetalAsset(BaseAsset):
             "silver_coin_31_1": 0.999,  # 999 проба
         }
 
-        # Текущие цены на металлы (USD за грамм)
-        # Эти значения можно получать из API
-        self.metal_prices = {
-            "gold": 65.0,  # USD за грамм золота (примерно)
-            "silver": 0.85,  # USD за грамм серебра (примерно)
-        }
-
     def get_weight(self) -> float:
         """Возвращает вес монеты в граммах"""
         return self.weights.get(self.symbol, 0)
@@ -58,37 +51,80 @@ class PreciousMetalAsset(BaseAsset):
         else:
             return "unknown"
 
-    def calculate_price(self) -> float:
+    async def get_current_metal_price(self, metal_type: str) -> Optional[float]:
         """
-        Рассчитывает цену монеты по формуле:
-        цена = вес * цена_металла * чистота * коэффициент_премии
+        Получает актуальную цену металла за грамм в рублях от ЦБ РФ
+        """
+        try:
+            from src.services.cbr_metals_service import metal_service
+
+            # Получаем последние цены на металлы
+            metal_prices = await metal_service.get_latest_prices()
+
+            if not metal_prices:
+                logger.warning(f"No metal prices available for {metal_type}")
+                return None
+
+            latest_price = metal_prices[0]  # Самая актуальная запись
+
+            if metal_type == "gold":
+                return latest_price.gold
+            elif metal_type == "silver":
+                return latest_price.silver
+            else:
+                logger.warning(f"Unknown metal type: {metal_type}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting current metal price for {metal_type}: {e}")
+            return None
+
+    # Изменения в precious_metal.py - метод calculate_price
+
+    async def calculate_price(self) -> float:
+        """
+        Рассчитывает актуальную цену монеты по формуле:
+        цена = (стоимость_металла_за_грамм_от_ЦБ * вес) * metal_premium
         """
         try:
             weight = self.get_weight()
-            purity = self.get_purity()
             metal_type = self.get_metal_type()
-            metal_price = self.metal_prices.get(metal_type, 0)
 
-            if weight <= 0 or metal_price <= 0:
+            # Получаем premium из конфигурации
+            premium = getattr(self.config, 'metal_premium', 1.0)
+
+            if weight <= 0:
                 return 0
 
-            # Базовая стоимость металла в монете
-            base_value = weight * metal_price * purity
+            # Получаем актуальную цену металла от ЦБ РФ
+            current_price_per_gram_rub = await self.get_current_metal_price(metal_type)
 
-            # Коэффициент премии (надбавка за чеканку, бренд и т.д.)
-            # Для золота обычно 5-15%, для серебра 10-30%
-            premium_multiplier = 1.15 if metal_type == "gold" else 1.20
+            if current_price_per_gram_rub is None or current_price_per_gram_rub <= 0:
+                logger.warning(f"No current price available for {metal_type}, using fallback")
+                return 0
 
-            # Итоговая цена
-            final_price = base_value * premium_multiplier
+            # Расчет: стоимость металла в монете + premium надбавка
+            metal_value_rub = current_price_per_gram_rub * weight
+            final_price_rub = metal_value_rub * premium
+
+            # Конвертируем в USD для совместимости с другими активами
+            from src.services.currency_service import currency_service
+            await currency_service.initialize()
+            usd_rate = currency_service.get_real_usd_rub_rate_sync()
+
+            if usd_rate > 0:
+                final_price_usd = final_price_rub / usd_rate
+            else:
+                final_price_usd = 0
 
             logger.debug(f"Calculated price for {self.symbol}: "
-                         f"weight={weight}g, purity={purity}, "
-                         f"metal_price=${metal_price}/g, "
-                         f"base_value=${base_value:.2f}, "
-                         f"final_price=${final_price:.2f}")
+                         f"weight={weight}g, "
+                         f"current_{metal_type}_price={current_price_per_gram_rub:.2f} ₽/g, "
+                         f"metal_value={metal_value_rub:.2f} ₽, "
+                         f"premium={premium}, "
+                         f"final_price={final_price_usd:.2f} USD ({final_price_rub:.2f} ₽)")
 
-            return final_price
+            return final_price_usd
 
         except Exception as e:
             logger.error(f"Error calculating price for {self.symbol}: {e}")
@@ -96,21 +132,17 @@ class PreciousMetalAsset(BaseAsset):
 
     async def get_price(self) -> Optional[AssetPrice]:
         """
-        Получает цену драгоценного металла.
-        Рассчитывается на основе текущей цены металла и характеристик монеты.
+        Получает актуальную цену драгоценного металла.
+        Рассчитывается на основе текущей цены металла от ЦБ РФ и веса монеты.
         """
         try:
-            # Здесь можно добавить получение реальных цен на металлы из API
-            # Например, из London Bullion Market Association (LBMA)
-            # Пока используем расчетную цену
-
-            price = self.calculate_price()
+            price = await self.calculate_price()
 
             return AssetPrice(
                 symbol=self.symbol,
                 price=price,
                 currency="USD",
-                source="calculated",
+                source="calculated_from_cbr",
                 timestamp=datetime.now()
             )
 
@@ -140,18 +172,61 @@ class PreciousMetalAsset(BaseAsset):
 
     def get_metal_info(self) -> Dict[str, Any]:
         """Возвращает информацию о металле"""
+        weight = self.get_weight()
         return {
             "symbol": self.symbol,
             "name": self.name,
-            "weight_g": self.get_weight(),
-            "weight_oz": self.get_weight() / 31.1035,  # Конвертация в тройские унции
+            "weight_g": weight,
+            "weight_oz": weight / 31.1035 if weight > 0 else 0,  # Конвертация в тройские унции
             "purity": self.get_purity(),
             "metal_type": self.get_metal_type(),
-            "price_per_g": self.metal_prices.get(self.get_metal_type(), 0)
         }
 
-    def update_metal_price(self, metal_type: str, price_per_g: float):
-        """Обновляет цену металла"""
-        if metal_type in ["gold", "silver"]:
-            self.metal_prices[metal_type] = price_per_g
-            logger.info(f"Updated {metal_type} price to ${price_per_g}/g")
+    async def get_detailed_price_info(self) -> Dict[str, Any]:
+        """Возвращает подробную информацию о цене"""
+        try:
+            weight = self.get_weight()
+            metal_type = self.get_metal_type()
+
+            current_price_per_gram_rub = await self.get_current_metal_price(metal_type)
+
+            if current_price_per_gram_rub:
+                metal_value_rub = current_price_per_gram_rub * weight
+                final_price_rub = metal_value_rub * 1.10
+
+                from src.services.currency_service import currency_service
+                await currency_service.initialize()
+                usd_rate = currency_service.get_real_usd_rub_rate_sync()
+
+                if usd_rate > 0:
+                    final_price_usd = final_price_rub / usd_rate
+                    current_price_per_gram_usd = current_price_per_gram_rub / usd_rate
+                else:
+                    final_price_usd = 0
+                    current_price_per_gram_usd = 0
+
+                return {
+                    "weight_g": weight,
+                    "metal_type": metal_type,
+                    "current_price_per_gram_rub": current_price_per_gram_rub,
+                    "current_price_per_gram_usd": current_price_per_gram_usd,
+                    "metal_value_rub": metal_value_rub,
+                    "final_price_rub": final_price_rub,
+                    "final_price_usd": final_price_usd,
+                    "premium_percent": 10.0,
+                    "calculation_formula": f"{current_price_per_gram_rub:.2f} ₽/g × {weight}g × 1.10"
+                }
+
+            return {
+                "weight_g": weight,
+                "metal_type": metal_type,
+                "error": "Цена металла недоступна"
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting detailed price info for {self.symbol}: {e}")
+            return {
+                "weight_g": self.get_weight(),
+                "metal_type": self.get_metal_type(),
+                "error": str(e)
+            }

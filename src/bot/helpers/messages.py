@@ -292,67 +292,102 @@ def get_fiat_assets_message(assets: List, prices_info: Dict) -> str:
     return message
 
 
+# Изменения в messages.py - метод get_metals_assets_message
+
 def get_metals_assets_message(assets: List, prices_info: Dict) -> str:
     """Сообщение со списком драгоценных металлов"""
     if not assets:
         return "❌ Нет доступных драгоценных металлов\nПожалуйста, попробуйте позже."
 
-    message = "🥇 Драгоценные металлы\n\n"
+    # Получаем курс USD/RUB
+    usd_to_rub_rate = currency_service.get_real_usd_rub_rate_sync()
 
     # Группируем по типу металла
     gold_assets = [a for a in assets if "gold" in a.symbol]
     silver_assets = [a for a in assets if "silver" in a.symbol]
+    basic_metals = [a for a in assets if a.symbol in ["gold", "silver", "platinum", "palladium"]]
+    metal_coins = [a for a in assets if "coin" in a.symbol]
 
-    # Золото
-    if gold_assets:
-        message += "💰 Золото:\n"
-        for asset in gold_assets:
+    message = "🥇 Драгоценные металлы\n\n"
+
+    # Информация о дате
+    metal_date = ""
+    for asset in gold_assets + silver_assets:
+        if asset.symbol in prices_info and "date" in prices_info[asset.symbol]:
+            metal_date = prices_info[asset.symbol]["date"]
+            break
+
+    if metal_date:
+        message += f"Цены ЦБ РФ на {metal_date}\n\n"
+
+    # Базовые металлы
+    if basic_metals:
+        message += "💰 Базовые металлы (за 1 грамм):\n"
+        for asset in basic_metals:
             price_info = prices_info.get(asset.symbol, {})
+            price_usd = price_info.get("price_usd")
+            price_rub = price_info.get("price_rub")
 
             message += f"{asset.config.emoji} {asset.config.name}\n"
 
-            if hasattr(asset, 'get_metal_info'):
-                info = asset.get_metal_info()
-                message += f"  Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
-                message += f"  Чистота: {info['purity'] * 100:.1f}%\n"
+            if price_usd is not None and price_rub is not None:
+                message += f"  Цена: ${price_usd:,.2f} | {currency_service.format_rub(price_rub)}\n"
+            else:
+                message += f"  Цена: ❌ временно недоступна\n"
 
-            if price := price_info.get("price"):
-                message += f"  Цена: ${price:.2f}\n"
-                if price_rub := price_info.get("price_rub"):
-                    message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
+            message += "\n"
 
-            message += f"  Пример: /add {asset.symbol} 1\n\n"
-
-    # Серебро
-    if silver_assets:
-        message += "🥈 Серебро:\n"
-        for asset in silver_assets:
+    # Металлические монеты
+    if metal_coins:
+        message += "🏅 Металлические монеты:\n"
+        for asset in metal_coins:
             price_info = prices_info.get(asset.symbol, {})
+            price_usd = price_info.get("price_usd")
+            price_rub = price_info.get("price_rub")
 
             message += f"{asset.config.emoji} {asset.config.name}\n"
 
-            if hasattr(asset, 'get_metal_info'):
-                info = asset.get_metal_info()
-                message += f"  Вес: {info['weight_g']}g ({info['weight_oz']:.2f} oz)\n"
-                message += f"  Чистота: {info['purity'] * 100:.1f}%\n"
+            if price_usd is not None and price_rub is not None:
+                weight = getattr(asset.config, 'weight_per_unit', 0)
+                premium = getattr(asset.config, 'metal_premium', 1.0)
+                premium_percent = (premium - 1) * 100
 
-            if price := price_info.get("price"):
-                message += f"  Цена: ${price:.2f}\n"
-                if price_rub := price_info.get("price_rub"):
-                    message += f"  Цена: {currency_service.format_rub(price_rub)}\n"
+                message += f"  Вес: {weight} грамм\n"
+                message += f"  Надбавка: +{premium_percent:.0f}%\n"
+                message += f"  Цена: ${price_usd:,.2f} | {currency_service.format_rub(price_rub)}\n"
+            else:
+                message += f"  Цена: ❌ временно недоступна\n"
 
-            message += f"  Пример: /add {asset.symbol} 1\n\n"
+            message += "\n"
 
     # Разделитель и информация
-    message += "─" * 25 + "\n"
-    message += "💡 Как использовать:\n"
-    message += "/add gold_coin_7_78 2 — добавить 2 золотые монеты\n"
-    message += "/add silver_coin_31_1 5 — добавить 5 серебряных\n"
-    message += "/portfolio — посмотреть общую стоимость\n\n"
+    message += "─" * 30 + "\n"
+    message += "💡 Добавить в портфель:\n"
+
+    for asset in metal_coins:
+        message += f"/add {asset.symbol} 1 — {asset.config.name}\n"
+
+    message += "\n"
 
     message += "📊 Особенности:\n"
-    message += "• Цены на основе биржевых котировок\n"
-    message += "• Вес указан в граммах и унциях\n"
+    message += "• Базовые металлы: цены ЦБ РФ\n"
+    message += "• Монеты: цена металла × вес × надбавка\n"
+
+    # Информация о надбавках
+    gold_coins = [a for a in metal_coins if "gold" in a.symbol]
+    silver_coins = [a for a in metal_coins if "silver" in a.symbol]
+
+    if gold_coins:
+        gold_premium = getattr(gold_coins[0].config, 'metal_premium', 1.10)
+        gold_percent = (gold_premium - 1) * 100
+        message += f"• Золотые монеты: +{gold_percent:.0f}% надбавка\n"
+
+    if silver_coins:
+        silver_premium = getattr(silver_coins[0].config, 'metal_premium', 1.20)
+        silver_percent = (silver_premium - 1) * 100
+        message += f"• Серебряные монеты: +{silver_percent:.0f}% надбавка\n"
+
+    message += f"\n💱 Курс: 1 USD = {currency_service.format_rub(usd_to_rub_rate)}"
 
     return message
 
