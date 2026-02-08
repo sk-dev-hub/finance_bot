@@ -1,14 +1,16 @@
 # src/tests/conftest.py
+import pytest
+import asyncio
 import sys
 import os
 
-# Получаем абсолютный путь к корню проекта (finance_bot)
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+# Добавляем src в путь для импортов
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-# Добавляем корень проекта в Python path
-sys.path.insert(0, project_root)
 
-# Также добавляем src в путь
-src_path = os.path.join(project_root, 'src')
-if src_path not in sys.path:
-    sys.path.insert(0, src_path)
+@pytest.fixture(scope="session")
+def event_loop():
+    """Создание event loop для асинхронных тестов"""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()

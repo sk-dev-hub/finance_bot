@@ -476,8 +476,9 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         asset_type=AssetType.ETF,
         emoji="🏅",
         display_precision=2,
-        price_source="moex",
-        source_id="FXGD",
+        price_source="moex",  # Указываем новый источник данных
+        source_id="FXGD",  # Тикер на Московской бирже
+        base_currency="RUB",  # Валюта торгования
         aliases=["finex_gold", "золотой_etf", "etf_золото", "физическое_золото", "fxgd_rub"],
         description="Биржевой инвестиционный фонд FinEx Физическое золото (тикер: FXGD). "
                     "Каждая акция соответствует 0.1 грамма золота. Торгуется на Московской бирже.",
@@ -485,6 +486,7 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         max_amount=1000000,
         enabled=True
     ),
+
 }
 
 
@@ -614,3 +616,16 @@ def get_metal_price_multiplier(symbol: str) -> float:
     if config.asset_type == AssetType.PRECIOUS_METAL:
         return config.weight_per_unit
     return 1.0
+
+def get_etf_assets() -> List[AssetConfig]:
+    """Возвращает список ETF"""
+    return get_assets_by_type(AssetType.ETF)
+
+
+def get_moex_assets() -> List[AssetConfig]:
+    """Возвращает список активов, торгующихся на MOEX"""
+    moex_assets = []
+    for asset in ASSETS_CONFIG.values():
+        if asset.price_source == "moex":
+            moex_assets.append(asset)
+    return moex_assets
