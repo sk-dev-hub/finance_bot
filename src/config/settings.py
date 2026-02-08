@@ -14,6 +14,8 @@ class PriceSources(str, Enum):
     COINGECKO = "coingecko"
     BINANCE = "binance"
     CBR = "cbr"
+    CBR_METALS = "cbr_metals"
+    PRECIOUS_METAL = "precious_metal"
     MANUAL = "manual"
     STATIC = "static"
 

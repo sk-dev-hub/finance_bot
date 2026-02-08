@@ -38,9 +38,12 @@ class AssetConfig:
     price_source: str = "coingecko"  # Источник цен
     source_id: str = ""  # ID в источнике (например, "bitcoin" для CoinGecko)
 
-    # Для фиатных валют
-    base_currency: str = "USD"     # Базовая валюта для конвертации
-    exchange_rate: float = 1.0     # Курс к базовой валюте (по умолчанию 1:1)
+    # Для фиатных валют и металлов
+    base_currency: str = "USD"  # Базовая валюта для конвертации
+    exchange_rate: float = 1.0  # Курс к базовой валюте (по умолчанию 1:1)
+
+    # Для металлов - вес в граммах на единицу (если не 1:1)
+    weight_per_unit: float = 1.0  # Вес в граммах на одну единицу
 
     # Валидация
     min_amount: float = 0.000001  # Минимальное количество
@@ -60,6 +63,18 @@ class AssetConfig:
         # Если source_id не указан, используем symbol
         if not self.source_id:
             self.source_id = self.symbol
+
+        # Для металлов source_id должен совпадать с символами в MetalService
+        if self.asset_type == AssetType.PRECIOUS_METAL and self.price_source == "cbr_metals":
+            # Маппинг символов на коды в MetalService
+            metal_mapping = {
+                "gold": "gold",
+                "silver": "silver",
+                "platinum": "platinum",
+                "palladium": "palladium"
+            }
+            if self.symbol in metal_mapping:
+                self.source_id = metal_mapping[self.symbol]
 
 
 # ============================================================================
@@ -220,15 +235,89 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         max_amount=10000000
     ),
 
-    # ================= ДРАГОЦЕННЫЕ МЕТАЛЛЫ =================
+    # ================= ДРАГОЦЕННЫЕ МЕТАЛЛЫ (БАЗОВЫЕ) =================
+    "gold": AssetConfig(
+        symbol="gold",
+        name="Золото",
+        asset_type=AssetType.PRECIOUS_METAL,
+        emoji="🥇",
+        display_precision=4,
+        price_source="cbr_metals",  # Новый источник цен
+        source_id="gold",  # Сопоставляется с metal_service
+        base_currency="RUB",  # Основная валюта - рубли
+        exchange_rate=1.0,
+        weight_per_unit=1.0,  # 1 единица = 1 грамм
+        aliases=["золото", "gold_gram", "gold_1g", "au"],
+        description="Золото (цена за 1 грамм). Учетная цена ЦБ РФ.",
+        min_amount=0.1,
+        max_amount=100000
+    ),
+
+    "silver": AssetConfig(
+        symbol="silver",
+        name="Серебро",
+        asset_type=AssetType.PRECIOUS_METAL,
+        emoji="🥈",
+        display_precision=4,
+        price_source="cbr_metals",
+        source_id="silver",
+        base_currency="RUB",
+        exchange_rate=1.0,
+        weight_per_unit=1.0,  # 1 единица = 1 грамм
+        aliases=["серебро", "silver_gram", "silver_1g", "ag"],
+        description="Серебро (цена за 1 грамм). Учетная цена ЦБ РФ.",
+        min_amount=1.0,
+        max_amount=1000000
+    ),
+
+    "platinum": AssetConfig(
+        symbol="platinum",
+        name="Платина",
+        asset_type=AssetType.PRECIOUS_METAL,
+        emoji="⚪",
+        display_precision=4,
+        price_source="cbr_metals",
+        source_id="platinum",
+        base_currency="RUB",
+        exchange_rate=1.0,
+        weight_per_unit=1.0,  # 1 единица = 1 грамм
+        aliases=["платина", "platinum_gram", "platinum_1g", "pt"],
+        description="Платина (цена за 1 грамм). Учетная цена ЦБ РФ.",
+        min_amount=0.1,
+        max_amount=100000
+    ),
+
+    "palladium": AssetConfig(
+        symbol="palladium",
+        name="Палладий",
+        asset_type=AssetType.PRECIOUS_METAL,
+        emoji="🔘",
+        display_precision=4,
+        price_source="cbr_metals",
+        source_id="palladium",
+        base_currency="RUB",
+        exchange_rate=1.0,
+        weight_per_unit=1.0,  # 1 единица = 1 грамм
+        aliases=["палладий", "palladium_gram", "palladium_1g", "pd"],
+        description="Палладий (цена за 1 грамм). Учетная цена ЦБ РФ.",
+        min_amount=0.1,
+        max_amount=100000
+    ),
+
+    # ================= ДРАГОЦЕННЫЕ МЕТАЛЛЫ (КОНКРЕТНЫЕ ИЗДЕЛИЯ) =================
     "gold_coin_7_78": AssetConfig(
         symbol="gold_coin_7_78",
         name="Золотая монета 7.78г",
         asset_type=AssetType.PRECIOUS_METAL,
         emoji="🥇",
         display_precision=4,
-        price_source="precious_metal",
-        description="Золотая монета весом 7.78 грамм (1/4 тройской унции)",
+        price_source="precious_metal",  # Используем ручной расчет через базовый gold
+        source_id="gold",  # Связываем с базовым золотом
+        base_currency="RUB",
+        exchange_rate=7.78,  # Вес монеты
+        weight_per_unit=7.78,  # Вес в граммах
+        description="Золотая монета весом 7.78 грамм (1/4 тройской унции). "
+                    "Цена рассчитывается как цена золота × 7.78",
         min_amount=0.1,
         max_amount=100,
         aliases=["золотая монета 7.78", "gold coin 7.78g", "gold_quarter_oz"]
@@ -241,7 +330,12 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         emoji="🏅",
         display_precision=4,
         price_source="precious_metal",
-        description="Золотая монета весом 15.55 грамм (1/2 тройской унции)",
+        source_id="gold",
+        base_currency="RUB",
+        exchange_rate=15.55,  # Вес монеты
+        weight_per_unit=15.55,  # Вес в граммах
+        description="Золотая монета весом 15.55 грамм (1/2 тройской унции). "
+                    "Цена рассчитывается как цена золота × 15.55",
         min_amount=0.1,
         max_amount=100,
         aliases=["золотая монета 15.55", "gold coin 15.55g", "gold_half_oz"]
@@ -254,18 +348,22 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         emoji="🥈",
         display_precision=4,
         price_source="precious_metal",
-        description="Серебряная монета весом 31.1 грамм (1 тройская унция)",
+        source_id="silver",
+        base_currency="RUB",
+        exchange_rate=31.1,  # Вес монеты
+        weight_per_unit=31.1,  # Вес в граммах
+        description="Серебряная монета весом 31.1 грамм (1 тройская унция). "
+                    "Цена рассчитывается как цена серебра × 31.1",
         min_amount=0.1,
         max_amount=1000,
         aliases=["серебряная монета 31.1", "silver coin 31.1g", "silver_ounce"]
     ),
 
-
     # ================= ДЕБИТОРСКАЯ ЗАДОЛЖЕННОСТЬ =================
     "receivable_ecm": AssetConfig(
         symbol="receivable_ecm",
         name="Дебиторская задолженность (ЕЦМ)",
-        asset_type=AssetType.RECEIVABLE,  # Новый тип
+        asset_type=AssetType.RECEIVABLE,
         emoji="🧾",
         display_precision=2,
         price_source="static",
@@ -289,13 +387,12 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
     ),
 
     # ================= ТОВАРЫ =================
-
     "product_1": AssetConfig(
         symbol="product_1",
         name="Приборы класик 24",
         asset_type=AssetType.COMMODITY,
         emoji="⚗️",
-        display_precision=0,  # Целые единицы
+        display_precision=0,
         price_source="static",
         description="Комплект приборов Классик 24 штуки",
         min_amount=1,
@@ -368,16 +465,15 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         aliases=["гитара_1007", "guitar_1007_sn", "1007_sn"]
     ),
 
-# ================= ETF =================
-
+    # ================= ETF =================
     "fxgd": AssetConfig(
         symbol="fxgd",
         name="FinEx Физическое золото",
         asset_type=AssetType.ETF,
         emoji="🏅",
         display_precision=2,
-        price_source="moex",  # Меняем на moex
-        source_id="FXGD",  # Тикер на MOEX
+        price_source="moex",
+        source_id="FXGD",
         aliases=["finex_gold", "золотой_etf", "etf_золото", "физическое_золото", "fxgd_rub"],
         description="Биржевой инвестиционный фонд FinEx Физическое золото (тикер: FXGD). "
                     "Каждая акция соответствует 0.1 грамма золота. Торгуется на Московской бирже.",
@@ -385,33 +481,6 @@ ASSETS_CONFIG: Dict[str, AssetConfig] = {
         max_amount=1000000,
         enabled=True
     ),
-
-    # Можно добавить больше валют по аналогии
-
-# ================= АКЦИИ =================
-    # Пример - раскомментируйте при необходимости
-    # "aapl": AssetConfig(
-    #     symbol="aapl",
-    #     name="Apple Inc",
-    #     asset_type=AssetType.STOCK,
-    #     emoji="🍎",
-    #     display_precision=2,
-    #     price_source="yahoo_finance",
-    #     source_id="AAPL",
-    #     description="Акции Apple"
-    # ),
-
-    # ================= ETF =================
-    # "spy": AssetConfig(
-    #     symbol="spy",
-    #     name="SPDR S&P 500 ETF",
-    #     asset_type=AssetType.ETF,
-    #     emoji="📈",
-    #     display_precision=2,
-    #     price_source="yahoo_finance",
-    #     source_id="SPY",
-    #     description="ETF на индекс S&P 500"
-    # ),
 }
 
 
@@ -455,13 +524,37 @@ def get_crypto_assets() -> List[AssetConfig]:
     """Возвращает список криптовалют"""
     return get_assets_by_type(AssetType.CRYPTO)
 
+
 def get_fiat_assets() -> List[AssetConfig]:
     """Возвращает список фиатных валют"""
     return get_assets_by_type(AssetType.FIAT)
 
+
 def get_precious_metal_assets() -> List[AssetConfig]:
     """Возвращает список активов из драгоценных металлов"""
     return get_assets_by_type(AssetType.PRECIOUS_METAL)
+
+
+def get_basic_metal_assets() -> List[AssetConfig]:
+    """Возвращает список базовых металлов (без конкретных изделий)"""
+    basic_metals = []
+    for asset in ASSETS_CONFIG.values():
+        if (asset.asset_type == AssetType.PRECIOUS_METAL and
+                asset.price_source == "cbr_metals" and
+                asset.symbol in ["gold", "silver", "platinum", "palladium"]):
+            basic_metals.append(asset)
+    return basic_metals
+
+
+def get_metal_product_assets() -> List[AssetConfig]:
+    """Возвращает список изделий из драгоценных металлов"""
+    metal_products = []
+    for asset in ASSETS_CONFIG.values():
+        if (asset.asset_type == AssetType.PRECIOUS_METAL and
+                asset.price_source == "precious_metal"):
+            metal_products.append(asset)
+    return metal_products
+
 
 def get_gold_assets() -> List[AssetConfig]:
     """Возвращает список золотых активов"""
@@ -471,6 +564,7 @@ def get_gold_assets() -> List[AssetConfig]:
             gold_assets.append(asset)
     return gold_assets
 
+
 def get_silver_assets() -> List[AssetConfig]:
     """Возвращает список серебряных активов"""
     silver_assets = []
@@ -478,6 +572,7 @@ def get_silver_assets() -> List[AssetConfig]:
         if asset.asset_type == AssetType.PRECIOUS_METAL and "silver" in asset.symbol:
             silver_assets.append(asset)
     return silver_assets
+
 
 def is_asset_supported(symbol: str) -> bool:
     """Проверяет, поддерживается ли актив"""
@@ -487,13 +582,16 @@ def is_asset_supported(symbol: str) -> bool:
     except ValueError:
         return False
 
+
 def get_commodity_assets() -> List[AssetConfig]:
     """Возвращает список товаров"""
     return get_assets_by_type(AssetType.COMMODITY)
 
+
 def get_receivable_assets() -> List[AssetConfig]:
     """Возвращает список дебиторской задолженности"""
     return get_assets_by_type(AssetType.RECEIVABLE)
+
 
 def get_etf_assets() -> List[AssetConfig]:
     """Возвращает список ETF"""
@@ -504,3 +602,11 @@ def format_amount(amount: float, symbol: str) -> str:
     """Форматирует количество согласно настройкам актива"""
     config = get_asset_config(symbol)
     return f"{amount:.{config.display_precision}f}"
+
+
+def get_metal_price_multiplier(symbol: str) -> float:
+    """Возвращает множитель цены для металлических изделий"""
+    config = get_asset_config(symbol)
+    if config.asset_type == AssetType.PRECIOUS_METAL:
+        return config.weight_per_unit
+    return 1.0

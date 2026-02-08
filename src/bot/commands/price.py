@@ -53,11 +53,11 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if active_sources:
         if len(active_sources) == 1:
-            source_line = f"_Источник: {active_sources[0]}_"
+            source_line = f"Источник: {active_sources[0]}"
         else:
-            source_line = f"_Источники: {', '.join(active_sources)}_"
+            source_line = f"Источники: {', '.join(active_sources)}"
     else:
-        source_line = "_Источники: CoinGecko API, Binance API_"
+        source_line = "Источники: CoinGecko API, Binance API"
 
     # Получаем текущее московское время
     formatted_time = format_timestamp()
@@ -72,8 +72,62 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Получаем текущий курс USD/RUB один раз (асинхронно)
     current_usd_rub_rate = await currency_service.get_real_usd_rub_rate()
 
+    # ======================== БЛОК ДЛЯ ДРАГОЦЕННЫХ МЕТАЛЛОВ ========================
+
+    # Получаем цены на драгоценные металлы из cbr_metals_service
+    from src.services.cbr_metals_service import metal_service
+
+    metals_message = ""
+    try:
+        # Получаем последние цены на металлы
+        metal_prices = await metal_service.get_latest_prices()
+
+        if metal_prices:
+            latest_metal_price = metal_prices[0]  # Самая актуальная запись
+
+            metals_message += "\n🥇 Драгоценные металлы (ЦБ РФ)\n"
+            metals_message += f"Дата: {latest_metal_price.date.strftime('%d.%m.%Y')}\n\n"
+
+            # Золото
+            gold_price_rub = latest_metal_price.gold
+            # Конвертируем золото из RUB в USD
+            gold_price_usd = gold_price_rub / current_usd_rub_rate if current_usd_rub_rate else None
+
+            metals_message += f"🥇 Золото (за 1 грамм)\n"
+            metals_message += f"   RUB: {latest_metal_price.format_price('gold')} ₽"
+            if gold_price_usd:
+                metals_message += f" | USD: ${gold_price_usd:,.2f}\n"
+            else:
+                metals_message += "\n"
+
+            # Серебро
+            silver_price_rub = latest_metal_price.silver
+            # Конвертируем серебро из RUB в USD
+            silver_price_usd = silver_price_rub / current_usd_rub_rate if current_usd_rub_rate else None
+
+            metals_message += f"🥈 Серебро (за 1 грамм)\n"
+            metals_message += f"   RUB: {latest_metal_price.format_price('silver')} ₽"
+            if silver_price_usd:
+                metals_message += f" | USD: ${silver_price_usd:,.4f}\n"
+            else:
+                metals_message += "\n"
+
+            metals_message += "─" * 30 + "\n\n"
+        else:
+            metals_message += "\n⚠️ Драгоценные металлы:\n"
+            metals_message += "   Цены временно недоступны\n"
+            metals_message += "─" * 30 + "\n\n"
+
+    except Exception as e:
+        logger.error(f"Ошибка получения цен на металлы: {e}")
+        metals_message += "\n⚠️ Драгоценные металлы:\n"
+        metals_message += "   Ошибка получения данных\n"
+        metals_message += "─" * 30 + "\n\n"
+
+    # ======================== КОНЕЦ БЛОКА ДЛЯ ДРАГОЦЕННЫХ МЕТАЛЛОВ ========================
+
     # Формируем сообщение
-    message = "📈 **Текущие цены криптовалют**\n\n"
+    message = "📈 Текущие цены криптовалют\n\n"
 
     for symbol in sorted_symbols:
         info = assets_info.get(symbol, {})
@@ -83,7 +137,7 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price_rub = info.get("price_rub")
         change = info.get("change_24h")
 
-        message += f"{emoji} **{name} ({symbol.upper()})**\n"
+        message += f"{emoji} {name} ({symbol.upper()})\n"
 
         if price_usd is not None:
             # Форматируем цену
@@ -124,13 +178,18 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "usdt": "100", "sol": "1.0"
         }
         example = example_amounts.get(symbol, "1.0")
-        message += f"   Пример: `/add {symbol} {example}`\n\n"
+        message += f"   Пример: /add {symbol} {example}\n\n"
 
     message += "─" * 30 + "\n"
-    message += "💡 **Подсказки:**\n"
-    message += "• `/add <символ> <количество>` — добавить актив\n"
-    message += "• `/portfolio` — посмотреть портфель\n"
-    message += "• `/stats` — статистика бота\n\n"
+
+    # Добавляем блок с металлами
+    message += metals_message
+
+    message += "💡 Подсказки:\n"
+    message += "• /add <символ> <количество> — добавить актив\n"
+    message += "• /portfolio — посмотреть портфель\n"
+    message += "• /stats — статистика бота\n"
+    message += "• /metals — подробнее о металлах\n\n"
 
     # Время обновления и источники
     message += f"🔄 Обновлено: {formatted_time}\n"
@@ -138,7 +197,7 @@ async def prices_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Асинхронный вывод курса
     one_usd_in_rub = current_usd_rub_rate  # уже есть курс
-    message += f"_Курс RUB: 1 USD = {currency_service.format_rub(one_usd_in_rub)}_"
+    message += f"Курс RUB: 1 USD = {currency_service.format_rub(one_usd_in_rub)}"
 
     await update.message.reply_text(message, parse_mode=None)
 
